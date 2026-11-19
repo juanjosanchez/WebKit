@@ -423,6 +423,8 @@ protected:
     bool m_isPaused { true };
     float m_playbackRate { 1 };
     PlaybackRatePausedState m_playbackRatePausedState { PlaybackRatePausedState::InitiallyPaused };
+    // A pause() that came while the pipeline prerolled, which rejects state changes.
+    bool m_isPauseDeferredUntilPrerolled { false };
     GstState m_currentState { GST_STATE_NULL };
     GstState m_oldState { GST_STATE_NULL };
     GstState m_requestedState { GST_STATE_VOID_PENDING };

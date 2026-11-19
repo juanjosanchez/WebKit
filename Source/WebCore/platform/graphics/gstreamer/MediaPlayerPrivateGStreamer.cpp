@@ -481,6 +481,7 @@ bool MediaPlayerPrivateGStreamer::isPipelineWaitingPreroll() const
 void MediaPlayerPrivateGStreamer::play()
 {
     GST_DEBUG_OBJECT(pipeline(), "Processing playback request");
+    m_isPauseDeferredUntilPrerolled = false;
     if (isMediaStreamPlayer()) {
         m_pausedTime.reset();
         if (m_startTime.isInvalid())
@@ -541,6 +542,11 @@ void MediaPlayerPrivateGStreamer::pause()
 #if ENABLE(MEDIA_TELEMETRY)
         MediaTelemetryReport::singleton().reportPlaybackState(MediaTelemetryReport::AVPipelineState::Pause);
 #endif
+    } else if (result == ChangePipelineStateResult::Rejected) {
+        // Once prerolled, the pipeline goes back to the state it had before the seek or flush.
+        GST_DEBUG_OBJECT(pipeline(), "pipeline is waiting preroll (after seek or flush), pausing once it prerolled");
+        m_isPauseDeferredUntilPrerolled = true;
+        m_isPipelinePlaying = false;
     } else if (result == ChangePipelineStateResult::Failed)
         loadingFailed(MediaPlayer::NetworkState::Empty);
 }
@@ -3130,8 +3136,10 @@ void MediaPlayerPrivateGStreamer::updateStates()
         }
 
         bool shouldPauseForBuffering = false;
+        bool isPausingAfterPreroll = false;
         // Sync states where needed.
         if (m_currentState == GST_STATE_PAUSED) {
+            m_isPauseDeferredUntilPrerolled = false;
             if (!m_areVolumeAndMuteInitialized) {
                 notifyPlayerOfVolumeChange();
                 notifyPlayerOfMute();
@@ -3144,6 +3152,11 @@ void MediaPlayerPrivateGStreamer::updateStates()
                 GST_INFO_OBJECT(pipeline(), "[Buffering] Restarting playback (because of buffering or resuming from zero playback rate)");
                 changePipelineState(GST_STATE_PLAYING);
             }
+        } else if (m_currentState == GST_STATE_PLAYING && m_isPauseDeferredUntilPrerolled) {
+            m_isPauseDeferredUntilPrerolled = false;
+            isPausingAfterPreroll = true;
+            GST_INFO_OBJECT(pipeline(), "Pausing now that the pipeline prerolled");
+            changePipelineState(GST_STATE_PAUSED);
         } else if (m_currentState == GST_STATE_PLAYING) {
             m_isPaused = false;
 
@@ -3176,7 +3189,7 @@ void MediaPlayerPrivateGStreamer::updateStates()
         // Emitting this notification in more cases triggers unwanted code paths
         // and test timeouts.
         if (stateReallyChanged && (m_oldState != m_currentState) && (m_oldState == GST_STATE_PAUSED && m_currentState == GST_STATE_PLAYING) && !shouldPauseForBuffering
-            && !m_isSeeking) {
+            && !isPausingAfterPreroll && !m_isSeeking) {
             GST_INFO_OBJECT(pipeline(), "Playback state changed from %s to %s. Notifying the media player client", gst_state_get_name(m_oldState), gst_state_get_name(m_currentState));
             shouldUpdatePlaybackState = true;
         }

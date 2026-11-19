@@ -5073,7 +5073,6 @@ webkit.org/b/225407 imported/w3c/web-platform-tests/css/css-animations/nested-sc
 webkit.org/b/315615 media/media-vp8-hiddenframes.html [ ImageOnlyFailure Pass ]
 webkit.org/b/315615 media/media-vp8-hiddenframes-decoder-in-content-process.html [ ImageOnlyFailure Pass ]
 webkit.org/b/323781 webrtc/concurrentVideoPlayback2.html [ Failure Pass Timeout ]
-webkit.org/b/318887 [ Release ] media/video-seek-pause.html [ Pass Failure ]
 webkit.org/b/313034 [ Release ] http/tests/resourceLoadStatistics/user-interaction-reported-after-website-data-removal.html [ Pass Failure ]
 webkit.org/b/305514 imported/w3c/web-platform-tests/fullscreen/rendering/fullscreen-root-block-scroll.html [ Failure Pass ]
 webkit.org/b/326318 imported/w3c/web-platform-tests/fullscreen/api/document-fullscreen-keyboard-lock-escape.window.html [ Pass Failure ]
