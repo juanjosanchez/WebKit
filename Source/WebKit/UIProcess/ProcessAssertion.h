@@ -51,6 +51,12 @@ OBJC_CLASS RBSAssertion;
 OBJC_CLASS WKRBSAssertionDelegate;
 #endif // USE(RUNNINGBOARD)
 
+#if USE(PROCESS_ASSERTIONS) && OS(ANDROID)
+#include <wtf/glib/GRefPtr.h>
+
+typedef struct _WPEProcessManager WPEProcessManager;
+#endif
+
 #if USE(EXTENSIONKIT)
 OBJC_CLASS BEWebContentProcess;
 OBJC_CLASS BENetworkingProcess;
@@ -84,6 +90,10 @@ public:
     static Ref<ProcessAssertion> create(AuxiliaryProcessProxy&, const String& reason, ProcessAssertionType, Mode = Mode::Async, CompletionHandler<void()>&& acquisisionHandler = nullptr);
 
     static double remainingRunTimeInSeconds(ProcessID);
+#if USE(PROCESS_ASSERTIONS)
+    // Whether the system applies assertions. On WPE for Android, only when the process manager ranks processes.
+    static bool isSupported();
+#endif
     virtual ~ProcessAssertion();
 
     void setPrepareForInvalidationHandler(Function<void()>&& handler) { m_prepareForInvalidationHandler = WTF::move(handler); }
@@ -112,6 +122,10 @@ protected:
     void acquireAsync(CompletionHandler<void()>&&);
     void acquireSync();
 
+#if USE(PROCESS_ASSERTIONS) && OS(ANDROID)
+    void setIsOnAuxiliaryProcess() { m_isOnAuxiliaryProcess = true; }
+#endif
+
 #if USE(RUNNINGBOARD)
     void processAssertionWillBeInvalidated();
     virtual void processAssertionWasInvalidated();
@@ -125,6 +139,13 @@ private:
     const RetainPtr<RBSAssertion> m_rbsAssertion;
     RetainPtr<WKRBSAssertionDelegate> m_delegate;
     bool m_wasInvalidated { false };
+#endif
+#if USE(PROCESS_ASSERTIONS) && OS(ANDROID)
+    // Only assertions on auxiliary processes hold a priority: the process manager knows only the processes it launched.
+    bool m_isOnAuxiliaryProcess { false };
+    // The priority this assertion holds, or 0, and the WPE process manager that holds it.
+    uint64_t m_priorityID { 0 };
+    GRefPtr<WPEProcessManager> m_processManager;
 #endif
     Function<void()> m_prepareForInvalidationHandler;
     Function<void()> m_invalidationHandler;

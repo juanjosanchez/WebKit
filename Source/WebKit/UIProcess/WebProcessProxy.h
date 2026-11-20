@@ -913,7 +913,9 @@ private:
     ForegroundWebProcessToken m_foregroundToken;
     BackgroundWebProcessToken m_backgroundToken;
     bool m_areThrottleStateChangesEnabled { true };
+#if !HAVE(RUNNING_SUSPENDED_PROCESSES)
     bool m_lastNotifiedNetworkProcessSuspended { false };
+#endif
 
 #if HAVE(DISPLAY_LINK)
     const UniqueRef<DisplayLinkProcessProxyClient> m_displayLinkClient;

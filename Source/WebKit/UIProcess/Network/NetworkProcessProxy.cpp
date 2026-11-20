@@ -290,7 +290,7 @@ NetworkProcessProxy::NetworkProcessProxy()
 #else
     , m_customProtocolManagerClient(makeUniqueRef<API::CustomProtocolManagerClient>())
 #endif
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || HAVE(RUNNING_SUSPENDED_PROCESSES)
     , m_backgroundActivityToPreventSuspension(protect(throttler())->backgroundActivity("Prevent suspension"_s))
 #endif
 {
@@ -2238,7 +2238,7 @@ void NetworkProcessProxy::didPerformEvictionForDomains(PAL::SessionID sessionID,
         store->client().didEvictDataForDomains(domains);
 }
 
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
 void NetworkProcessProxy::wakeUpWebProcessForIPC(WebCore::ProcessIdentifier processIdentifier)
 {
     auto webProcess = WebProcessProxy::processForIdentifier(processIdentifier);

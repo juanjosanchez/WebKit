@@ -464,8 +464,11 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::C
 
     drainPendingMessages(*connection);
 
+#if USE(PROCESS_ASSERTIONS)
+    if (ProcessThrottler::appliesThrottleStates())
+        protect(throttler())->didConnectToProcess(*this);
+#endif
 #if USE(RUNNINGBOARD)
-    protect(throttler())->didConnectToProcess(*this);
 #if PLATFORM(MAC)
     updateJetsamBoostAssertion();
 #endif
@@ -479,14 +482,18 @@ void AuxiliaryProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::C
 
 void AuxiliaryProcessProxy::outgoingMessageQueueIsGrowingLarge()
 {
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     wakeUpTemporarilyForIPC();
 #endif
 }
 
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
 void AuxiliaryProcessProxy::wakeUpTemporarilyForIPC()
 {
+    // A process can only be suspended when its throttler applies its states.
+    if (!ProcessThrottler::appliesThrottleStates())
+        return;
+
     // If we keep trying to send IPC to a suspended process, the outgoing message queue may grow large and result
     // in increased memory usage. To avoid this, we allow the process to stay alive for 1 second after draining
     // its message queue.

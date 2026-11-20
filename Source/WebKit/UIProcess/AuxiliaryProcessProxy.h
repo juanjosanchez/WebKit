@@ -230,7 +230,7 @@ public:
 
     std::optional<SandboxExtensionHandle> createMobileGestaltSandboxExtensionIfNeeded() const;
 
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     void wakeUpTemporarilyForIPC();
 #endif
 

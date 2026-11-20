@@ -2090,3 +2090,9 @@
 #if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 280000
 #define HAVE_NSKEYBOARDSHORTCUT_MODIFIER_FLAGS 1
 #endif
+
+/* On WPE for Android, the system freezes the processes of an app only together with the app, so a suspended auxiliary
+   process keeps running while the app runs: suspension only ranks it lower and has it free memory. */
+#if PLATFORM(WPE) && OS(ANDROID)
+#define HAVE_RUNNING_SUSPENDED_PROCESSES 1
+#endif

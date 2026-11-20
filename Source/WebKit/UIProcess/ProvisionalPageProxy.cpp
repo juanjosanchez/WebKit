@@ -97,7 +97,7 @@ ProvisionalPageProxy::ProvisionalPageProxy(WebPageProxy& page, Ref<FrameProcess>
     , m_isProcessSwappingOnNavigationResponse(isProcessSwappingOnNavigationResponse)
     , m_shouldReuseMainFrame(page.shouldReuseMainFrameOnProcessSwap(m_browsingContextGroup))
     , m_provisionalLoadURL(isProcessSwappingOnNavigationResponse ? request.url() : URL())
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     , m_provisionalLoadActivity(protect(m_frameProcess->process().throttler())->foregroundActivity("Provisional Load"_s))
 #endif
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)

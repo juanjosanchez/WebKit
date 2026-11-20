@@ -147,7 +147,7 @@ SuspendedPageProxy::SuspendedPageProxy(WebPageProxy& page, Ref<WebProcessProxy>&
     , m_mainFrame(WTF::move(mainFrame))
     , m_browsingContextGroup(WTF::move(browsingContextGroup))
     , m_suspensionTimeoutTimer(RunLoop::mainSingleton(), "SuspendedPageProxy::SuspensionTimeoutTimer"_s, this, &SuspendedPageProxy::suspensionTimedOut)
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     , m_suspensionActivity(protect(m_process->throttler())->backgroundActivity("Page suspension for back/forward cache"_s))
 #endif
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)
@@ -341,7 +341,7 @@ void SuspendedPageProxy::didProcessRequestToSuspend(SuspensionState newSuspensio
     if (m_suspensionState != SuspensionState::Suspending)
         return;
 
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     m_suspensionActivity = nullptr;
 #endif
 

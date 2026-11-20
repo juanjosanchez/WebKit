@@ -144,8 +144,18 @@ ProcessThrottler::ProcessThrottler(AuxiliaryProcessProxy& process, bool shouldTa
     , m_prepareToSuspendTimeoutTimer(RunLoop::mainSingleton(), "ProcessThrottler::PrepareToSuspendTimeoutTimer"_s, this, &ProcessThrottler::prepareToSuspendTimeoutTimerFired)
     , m_dropNearSuspendedAssertionTimer(RunLoop::mainSingleton(), "ProcessThrottler::DropNearSuspendedAssertionTimer"_s, this, &ProcessThrottler::dropNearSuspendedAssertionTimerFired)
     , m_prepareToDropLastAssertionTimeoutTimer(RunLoop::mainSingleton(), "ProcessThrottler::PrepareToDropLastAssertionTimeoutTimer"_s, this, &ProcessThrottler::prepareToDropLastAssertionTimeoutTimerFired)
+    , m_state(appliesThrottleStates() ? ProcessThrottleState::Suspended : ProcessThrottleState::Foreground)
     , m_shouldTakeUIBackgroundAssertion(shouldTakeUIBackgroundAssertion)
 {
+}
+
+bool ProcessThrottler::appliesThrottleStates()
+{
+#if USE(PROCESS_ASSERTIONS)
+    return ProcessAssertion::isSupported();
+#else
+    return false;
+#endif
 }
 
 ProcessThrottler::~ProcessThrottler()
@@ -294,14 +304,15 @@ ProcessAssertionType ProcessThrottler::assertionTypeForState(ProcessThrottleStat
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-#if !USE(RUNNINGBOARD)
+#if !USE(PROCESS_ASSERTIONS)
 NO_RETURN_DUE_TO_ASSERT
 #endif
 void ProcessThrottler::setThrottleState(ProcessThrottleState newState)
 {
-#if !USE(RUNNINGBOARD)
+#if !USE(PROCESS_ASSERTIONS)
     ASSERT_NOT_REACHED();
 #endif
+    ASSERT(appliesThrottleStates());
 
     assertIfCalledFromBackgroundThread();
 

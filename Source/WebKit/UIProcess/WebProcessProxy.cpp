@@ -1126,7 +1126,7 @@ Ref<WebPageProxy> WebProcessProxy::createWebPage(PageClient& pageClient, Ref<API
 
 bool WebProcessProxy::shouldTakeNearSuspendedAssertion() const
 {
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     if (m_pageMap.isEmpty()) {
         // The setting come from pages but this process has no page, we thus use the default
         // setting value.
@@ -2593,6 +2593,8 @@ void WebProcessProxy::didChangeThrottleState(ProcessThrottleState type)
         return;
     WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "didChangeThrottleState: type=%u", (unsigned)type);
 
+    // A suspended process that keeps running makes progress on its IndexedDB transactions by itself.
+#if !HAVE(RUNNING_SUSPENDED_PROCESSES)
     bool isNowSuspended = type == ProcessThrottleState::Suspended;
     if (m_lastNotifiedNetworkProcessSuspended != isNowSuspended) {
         m_lastNotifiedNetworkProcessSuspended = isNowSuspended;
@@ -2604,6 +2606,7 @@ void WebProcessProxy::didChangeThrottleState(ProcessThrottleState type)
                 networkProcess->send(Messages::NetworkProcess::SetWebProcessSuspended(coreProcessIdentifier(), isNowSuspended), 0);
         }
     }
+#endif
 
     if (isStandaloneServiceWorkerProcess()) {
         WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "didChangeThrottleState: Release all assertions for network process because this is a service worker process without page");

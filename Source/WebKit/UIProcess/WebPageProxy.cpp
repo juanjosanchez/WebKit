@@ -594,7 +594,7 @@ static bool shouldUseEnhancedSecurityHeuristics(const Ref<WebPreferences>& prefe
         && !preferences->enhancedSecurityForceDisabled();
 }
 
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
 static constexpr Seconds audibleActivityClearDelay = 10_s;
 #endif
 
@@ -4161,7 +4161,7 @@ void WebPageProxy::updateThrottleState()
     else if (!internals().pageIsUserObservableCount)
         internals().pageIsUserObservableCount = processPool->userObservablePageCount();
 
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     if (isViewVisible()) {
         if (!hasValidVisibleActivity()) {
             WEBPAGEPROXY_RELEASE_LOG(ProcessSuspension, "updateThrottleState: UIProcess is taking a foreground assertion because the view is visible");
@@ -4241,10 +4241,10 @@ void WebPageProxy::waitForDidUpdateActivityState(ActivityStateChangeID activityS
     if (m_waitingForDidUpdateActivityState)
         return;
 
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     // Hail Mary check. Should not be possible (dispatchActivityStateChange should force async if not visible,
     // and if visible we should be holding an assertion) - but we should never block on a suspended process.
-    if (!hasValidVisibleActivity()) {
+    if (ProcessThrottler::appliesThrottleStates() && !hasValidVisibleActivity()) {
         ASSERT_NOT_REACHED();
         return;
     }
@@ -9021,6 +9021,8 @@ void WebPageProxy::runJavaScriptInFrameInScriptWorld(RunJavaScriptParameters&& p
 #if USE(RUNNINGBOARD)
     if (RefPtr pageClient = this->pageClient(); pageClient && pageClient->canTakeForegroundAssertions())
         activity = protect(processContainingFrame(frameID)->throttler())->foregroundActivity("WebPageProxy::runJavaScriptInFrameInScriptWorld"_s);
+#elif USE(PROCESS_ASSERTIONS)
+    activity = protect(processContainingFrame(frameID)->throttler())->foregroundActivity("WebPageProxy::runJavaScriptInFrameInScriptWorld"_s);
 #endif
 
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::RunJavaScriptInFrameInScriptWorld(parameters, frameID, world.worldDataForProcess(processContainingFrame(frameID)), wantsResult), [activity = WTF::move(activity), loggingIdentifier, callbackFunction = WTF::move(callbackFunction)] (auto&& result) mutable {

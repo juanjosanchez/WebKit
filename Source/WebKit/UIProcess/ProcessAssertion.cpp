@@ -31,6 +31,11 @@
 #include <wtf/RunLoop.h>
 #include <wtf/TZoneMallocInlines.h>
 
+#if USE(PROCESS_ASSERTIONS) && OS(ANDROID)
+#include <wpe/wpe-platform.h>
+#include <wtf/MainThread.h>
+#endif
+
 namespace WebKit {
 
 ASCIILiteral processAssertionTypeDescription(ProcessAssertionType type)
@@ -84,6 +89,9 @@ Ref<ProcessAssertion> ProcessAssertion::create(ProcessID processID, const String
 Ref<ProcessAssertion> ProcessAssertion::create(AuxiliaryProcessProxy& process, const String& reason, ProcessAssertionType type, Mode mode, CompletionHandler<void()>&& acquisisionHandler)
 {
     auto assertion = adoptRef(*new ProcessAssertion(process.processID(), reason, type, process.environmentIdentifier()));
+#if USE(PROCESS_ASSERTIONS) && OS(ANDROID)
+    assertion->setIsOnAuxiliaryProcess();
+#endif
     assertion->acquireAssertion(mode, WTF::move(acquisisionHandler));
     return assertion;
 }
@@ -91,6 +99,9 @@ Ref<ProcessAssertion> ProcessAssertion::create(AuxiliaryProcessProxy& process, c
 Ref<ProcessAndUIAssertion> ProcessAndUIAssertion::create(AuxiliaryProcessProxy& process, const String& reason, ProcessAssertionType type, Mode mode, CompletionHandler<void()>&& acquisisionHandler)
 {
     auto assertion = adoptRef(*new ProcessAndUIAssertion(process.processID(), reason, type, process.environmentIdentifier()));
+#if USE(PROCESS_ASSERTIONS) && OS(ANDROID)
+    assertion->setIsOnAuxiliaryProcess();
+#endif
     assertion->acquireAssertion(mode, WTF::move(acquisisionHandler));
     return assertion;
 }
@@ -134,6 +145,13 @@ Ref<ProcessAndUIAssertion> ProcessAndUIAssertion::create(ProcessID processID, co
 
 #endif
 
+#if USE(RUNNINGBOARD)
+bool ProcessAssertion::isSupported()
+{
+    return true;
+}
+#endif
+
 #if !PLATFORM(COCOA) || !USE(RUNNINGBOARD)
 
 ProcessAssertion::ProcessAssertion(ProcessID pid, const String& reason, ProcessAssertionType assertionType, const String&)
@@ -143,21 +161,86 @@ ProcessAssertion::ProcessAssertion(ProcessID pid, const String& reason, ProcessA
 {
 }
 
-ProcessAssertion::~ProcessAssertion() = default;
+#if USE(PROCESS_ASSERTIONS) && OS(ANDROID)
 
-double ProcessAssertion::remainingRunTimeInSeconds(ProcessID)
+// On Android, the embedder's WPE process manager turns each assertion into a priority hold, which it applies to the
+// service backing the process. A near suspended assertion takes no hold: the process does not need to run.
+static std::optional<WPEProcessPriority> processPriority(ProcessAssertionType type)
 {
-    return 0;
+    switch (type) {
+    case ProcessAssertionType::NearSuspended:
+        return std::nullopt;
+    case ProcessAssertionType::Background:
+    case ProcessAssertionType::BackgroundIdleJetsam:
+    case ProcessAssertionType::UnboundedNetworking:
+    case ProcessAssertionType::FinishTaskCanSleep:
+    case ProcessAssertionType::FinishTaskInterruptable:
+    case ProcessAssertionType::BoostedJetsam:
+        return WPE_PROCESS_PRIORITY_BACKGROUND;
+    case ProcessAssertionType::Foreground:
+    case ProcessAssertionType::MediaPlayback:
+        return WPE_PROCESS_PRIORITY_FOREGROUND;
+    }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
-void ProcessAssertion::acquireAsync(CompletionHandler<void()>&& completionHandler)
+bool ProcessAssertion::isSupported()
 {
-    if (completionHandler)
-        RunLoop::mainSingleton().dispatch(WTF::move(completionHandler));
+    auto* processManager = wpe_process_manager_get_default();
+    return processManager && wpe_process_manager_ranks_processes(processManager);
+}
+
+ProcessAssertion::~ProcessAssertion()
+{
+    if (!m_priorityID)
+        return;
+
+    // The hold is released by the manager that took it, even if another one is the default now.
+    ensureOnMainRunLoop([processManager = WTF::move(m_processManager), priorityID = m_priorityID] {
+        wpe_process_manager_release_priority(processManager.get(), priorityID);
+    });
 }
 
 void ProcessAssertion::acquireSync()
 {
+    ASSERT(isMainRunLoop());
+    ASSERT(!m_priorityID);
+
+    auto priority = processPriority(m_assertionType);
+    if (!priority || !m_isOnAuxiliaryProcess || m_pid <= 0)
+        return;
+
+    auto* processManager = wpe_process_manager_get_default();
+    if (!processManager)
+        return;
+
+    m_priorityID = wpe_process_manager_acquire_priority(processManager, m_pid, *priority);
+    if (m_priorityID)
+        m_processManager = processManager;
+}
+
+#else
+
+ProcessAssertion::~ProcessAssertion() = default;
+
+void ProcessAssertion::acquireSync()
+{
+}
+
+#endif
+
+void ProcessAssertion::acquireAsync(CompletionHandler<void()>&& completionHandler)
+{
+    // Taking the assertion does not block, so it is taken right away. A previous assertion of the throttler, kept alive
+    // by the completion handler, is released only after this one is in place.
+    acquireSync();
+    if (completionHandler)
+        RunLoop::mainSingleton().dispatch(WTF::move(completionHandler));
+}
+
+double ProcessAssertion::remainingRunTimeInSeconds(ProcessID)
+{
+    return 0;
 }
 
 ProcessAndUIAssertion::ProcessAndUIAssertion(ProcessID pid, const String& reason, ProcessAssertionType assertionType, const String& environmentIdentifier)

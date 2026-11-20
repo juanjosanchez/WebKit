@@ -142,7 +142,7 @@ private:
     RunLoop::Timer m_suspensionTimeoutTimer;
     bool m_mainFrameSuspended { false };
     bool m_allSubframesSuspended { false };
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     RefPtr<ProcessThrottler::BackgroundActivity> m_suspensionActivity;
 #endif
 #if HAVE(VISIBILITY_PROPAGATION_VIEW)

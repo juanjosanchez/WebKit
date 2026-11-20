@@ -451,7 +451,7 @@ private:
     static void platformObserveTrackingPreventionContentRuleListUpdates();
 #endif
 
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     void wakeUpWebProcessForIPC(WebCore::ProcessIdentifier);
 #endif
 
@@ -532,12 +532,14 @@ private:
     WeakHashMap<WebProcessProxy, HashSet<WebPageProxyIdentifier>> m_allowedWebPageProxyIdentifiers;
     WeakHashMap<WebProcessProxy, HashSet<String>> m_allowedFilePathsByProcess;
     HashMap<DataTaskIdentifier, Ref<API::DataTask>> m_dataTasks;
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) || HAVE(RUNNING_SUSPENDED_PROCESSES)
     // On macOS, we prevent suspension of the NetworkProcess to avoid kills when holding
     // locked database files. The WebSQLiteDatabaseTracker is not functional on macOS
     // because the network process is not allowed to talk to talk to runningboardd due
     // to sandboxing. See rdar://112406083 & rdar://112086186 for potential long-term
     // fixes.
+    // Where suspended processes keep running, the web processes of hidden pages keep using
+    // storage, which the network process stops when it suspends.
     const Ref<ProcessThrottlerActivity> m_backgroundActivityToPreventSuspension;
 #endif
 

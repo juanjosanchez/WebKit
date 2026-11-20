@@ -135,6 +135,10 @@ public:
 
     using TimedActivity = ProcessThrottlerTimedActivity;
 
+    // Whether the system applies the state of each process. Otherwise processes always run, and the throttler is
+    // never connected to them.
+    static bool appliesThrottleStates();
+
     void didConnectToProcess(AuxiliaryProcessProxy&);
     void didDisconnectFromProcess();
     bool shouldBeRunnable() const { return !m_foregroundActivities.computeIsEmpty() || !m_backgroundActivities.computeIsEmpty(); }
@@ -190,11 +194,7 @@ private:
     WeakHashSet<Activity> m_foregroundActivities;
     WeakHashSet<Activity> m_backgroundActivities;
     std::optional<uint64_t> m_pendingRequestToSuspendID;
-#if USE(RUNNINGBOARD)
-    ProcessThrottleState m_state { ProcessThrottleState::Suspended };
-#else
-    ProcessThrottleState m_state { ProcessThrottleState::Foreground };
-#endif
+    ProcessThrottleState m_state;
     bool m_shouldDropNearSuspendedAssertionAfterDelay { false };
     const bool m_shouldTakeUIBackgroundAssertion { false };
     bool m_shouldTakeNearSuspendedAssertion { true };

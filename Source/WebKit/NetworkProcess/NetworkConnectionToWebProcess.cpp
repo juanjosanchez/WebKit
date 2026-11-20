@@ -180,7 +180,7 @@ NetworkConnectionToWebProcess::NetworkConnectionToWebProcess(WebCore::ProcessIde
     Ref protectedConnection = m_connection;
     protectedConnection->setOnlySendMessagesAsDispatchWhenWaitingForSyncReplyWhenProcessingSuchAMessage(true);
     protectedConnection->open(*this);
-#if USE(RUNNINGBOARD)
+#if USE(PROCESS_ASSERTIONS)
     protectedConnection->setOutgoingMessageQueueIsGrowingLargeCallback([weakThis = WeakPtr { *this }] {
         ensureOnMainRunLoop([weakThis] {
             if (weakThis)

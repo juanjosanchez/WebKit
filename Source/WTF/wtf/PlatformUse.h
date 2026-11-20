@@ -336,6 +336,12 @@
 #define USE_RUNNINGBOARD 1
 #endif
 
+/* The system ranks auxiliary processes by the assertions the UI process takes on them, and may suspend or end the
+   ones that do not need to run. On WPE for Android, the embedder's process manager applies them. */
+#if USE(RUNNINGBOARD) || (PLATFORM(WPE) && OS(ANDROID))
+#define USE_PROCESS_ASSERTIONS 1
+#endif
+
 #if PLATFORM(MAC)
 #define USE_NSPRESENTATIONSTATE 1
 #endif
