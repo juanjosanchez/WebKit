@@ -378,6 +378,7 @@ TrackingType ScrollingTreeCoordinated::eventTrackingTypeForTouchEvent(const Plat
     if (!offset)
         return TrackingType::NotTracking;
 
+    Locker locker { m_touchEventTrackingLock };
     for (auto& touchPoint : event.touchPoints()) {
         if (touchPoint.state() != PlatformTouchPoint::State::TouchPressed)
             continue;
@@ -452,6 +453,13 @@ TrackingType ScrollingTreeCoordinated::eventTrackingTypeForTouchEvent(const Plat
         m_touchEventTracking.reset();
 
     return globalTrackingType;
+}
+
+void ScrollingTreeCoordinated::didDispatchTouchStart(TrackingType touchMoveTracking, TrackingType touchEndTracking)
+{
+    Locker locker { m_touchEventTrackingLock };
+    m_touchEventTracking.touchMoveTracking = mergeTrackingTypes(m_touchEventTracking.touchMoveTracking, touchMoveTracking);
+    m_touchEventTracking.touchEndTracking = mergeTrackingTypes(m_touchEventTracking.touchEndTracking, touchEndTracking);
 }
 #endif
 

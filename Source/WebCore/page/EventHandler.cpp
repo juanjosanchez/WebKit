@@ -57,6 +57,7 @@
 #include "EditorClient.h"
 #include "ElementInlines.h"
 #include "EventNames.h"
+#include "EventTrackingRegions.h"
 #include "FileList.h"
 #include "FloatPoint.h"
 #include "FloatRect.h"
@@ -5691,6 +5692,29 @@ static HitTestResult hitTestResultInFrame(LocalFrame* frame, const LayoutPoint& 
     protect(frame->document())->hitTest(hitType, result);
     return result;
 }
+
+#if ENABLE(COORDINATED_TOUCH_EVENTS)
+TrackingType EventHandler::trackingTypeForCurrentTouchTargets(const AtomString& eventType)
+{
+    auto trackingType = TrackingType::NotTracking;
+    auto addListenersOf = [&](EventTarget& eventTarget) {
+        if (eventTarget.hasActiveEventListeners(eventType))
+            trackingType = TrackingType::Synchronous;
+        else if (trackingType == TrackingType::NotTracking && eventTarget.hasEventListeners(eventType))
+            trackingType = TrackingType::Asynchronous;
+    };
+    for (auto& target : m_originatingTouchPointTargets.values()) {
+        RefPtr node = dynamicDowncast<Node>(target);
+        if (!node)
+            continue;
+        for (RefPtr ancestor = node; ancestor; ancestor = ancestor->parentInComposedTree())
+            addListenersOf(*ancestor);
+        if (RefPtr window = node->document().window())
+            addListenersOf(*window);
+    }
+    return trackingType;
+}
+#endif
 
 std::expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
 {

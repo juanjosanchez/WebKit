@@ -128,6 +128,7 @@ private:
 #elif ENABLE(COORDINATED_TOUCH_EVENTS)
     void dispatchTouchEventViaMainThread(WebCore::PageIdentifier, Ref<WebTouchEvent>&&, CompletionHandler<void(WebEventType, bool)>&&);
     void touchEvent(WebCore::PageIdentifier, WebCore::FrameIdentifier, Ref<WebTouchEvent>&&, CompletionHandler<void(WebEventType, bool)>&&);
+    void didDispatchTouchStart(WebCore::PageIdentifier, WebPage&);
 #endif
 #if ENABLE(MAC_GESTURE_EVENTS)
     void gestureEvent(WebCore::FrameIdentifier, WebCore::PageIdentifier, Ref<WebGestureEvent>&&, CompletionHandler<void(std::optional<WebEventType>, bool, std::optional<WebCore::RemoteUserInputEventData>)>&&);

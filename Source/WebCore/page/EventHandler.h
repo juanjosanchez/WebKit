@@ -125,6 +125,7 @@ struct FocusEventData;
 struct FrameIdentifierType;
 struct RemoteUserInputEventData;
 
+enum class TrackingType : uint8_t;
 enum class WheelEventProcessingSteps : uint8_t;
 enum class WheelScrollGestureState : uint8_t;
 
@@ -380,6 +381,11 @@ public:
 
 #if ENABLE(TOUCH_EVENTS)
     WEBCORE_EXPORT std::expected<bool, RemoteFrameGeometryTransformer> handleTouchEvent(const PlatformTouchEvent&);
+#endif
+#if ENABLE(COORDINATED_TOUCH_EVENTS)
+    // How the page must get events of the given type for the current touches, from the listeners now on the paths of
+    // their targets. A touchstart listener may have just added some.
+    WEBCORE_EXPORT TrackingType trackingTypeForCurrentTouchTargets(const AtomString& eventType);
 #endif
 
     bool useHandCursor(Node*, bool isOverLink, bool shiftKey);

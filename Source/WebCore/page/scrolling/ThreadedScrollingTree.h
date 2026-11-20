@@ -72,6 +72,9 @@ public:
 
 #if ENABLE(COORDINATED_TOUCH_EVENTS)
     virtual TrackingType eventTrackingTypeForTouchEvent(const PlatformTouchEvent&) { return TrackingType::NotTracking; }
+    // The page dispatched a touchstart, whose listeners may have added touch listeners. The event regions show them only
+    // after the next rendering update, so the page reports the tracking that the touch moves and ends now need.
+    virtual void didDispatchTouchStart(TrackingType /* touchMoveTracking */, TrackingType /* touchEndTracking */) { }
 #endif
 
 protected:

@@ -36,9 +36,13 @@
 #include "WebTouchEvent.h"
 #include "WebWheelEvent.h"
 #include <WebCore/DisplayUpdate.h>
+#include <WebCore/EventHandler.h>
+#include <WebCore/EventNames.h>
+#include <WebCore/EventTrackingRegions.h>
 #include <WebCore/Frame.h>
 #include <WebCore/HandleUserInputEventResult.h>
 #include <WebCore/KeyboardScrollingAnimator.h>
+#include <WebCore/LocalFrame.h>
 #include <WebCore/Page.h>
 #include <WebCore/PageInlines.h>
 #include <WebCore/WheelEventTestMonitor.h>
@@ -306,11 +310,33 @@ void EventDispatcher::dispatchTouchEventViaMainThread(WebCore::PageIdentifier pa
     RunLoop::mainSingleton().dispatch([protectedThis = Ref { *this }, pageID, touchEvent = WTF::move(touchEvent), completionHandler = WTF::move(completionHandler)] mutable {
         RefPtr webPage = WebProcess::singleton().webPage(pageID);
         bool handled = false;
-        if (webPage)
+        if (webPage) {
             handled = webPage->dispatchTouchEvent(touchEvent.copyRef());
+            // The UI process sends the next touch event after the reply, so its tracking follows the listeners that
+            // this touchstart may have added. A touchstart replied to before dispatch cannot change it.
+            if (completionHandler && touchEvent->type() == WebEventType::TouchStart)
+                protectedThis->didDispatchTouchStart(pageID, *webPage);
+        }
         if (completionHandler)
             completionHandler(touchEvent->type(), handled);
     });
+}
+
+void EventDispatcher::didDispatchTouchStart(WebCore::PageIdentifier pageID, WebPage& webPage)
+{
+    ASSERT(isMainRunLoop());
+    RefPtr<WebCore::ThreadedScrollingTree> scrollingTree;
+    {
+        Locker locker { m_scrollingTreesLock };
+        scrollingTree = m_scrollingTrees.get(pageID);
+    }
+    RefPtr localMainFrame = webPage.localMainFrame();
+    if (!scrollingTree || !localMainFrame)
+        return;
+
+    CheckedRef eventHandler = localMainFrame->eventHandler();
+    auto& names = eventNames();
+    scrollingTree->didDispatchTouchStart(eventHandler->trackingTypeForCurrentTouchTargets(names.touchmoveEvent), eventHandler->trackingTypeForCurrentTouchTargets(names.touchendEvent));
 }
 
 void EventDispatcher::touchEvent(PageIdentifier pageID, FrameIdentifier frameID, Ref<WebTouchEvent>&& touchEvent, CompletionHandler<void(WebEventType, bool)>&& completionHandler)

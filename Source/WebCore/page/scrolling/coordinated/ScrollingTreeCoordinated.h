@@ -60,6 +60,7 @@ private:
 #endif
 #if ENABLE(COORDINATED_TOUCH_EVENTS)
     TrackingType eventTrackingTypeForTouchEvent(const PlatformTouchEvent&) final;
+    void didDispatchTouchStart(TrackingType touchMoveTracking, TrackingType touchEndTracking) final;
 
     struct TouchEventTracking {
         TrackingType touchForceChangedTracking { TrackingType::NotTracking };
@@ -83,7 +84,8 @@ private:
             touchEndTracking = TrackingType::NotTracking;
         }
     };
-    TouchEventTracking m_touchEventTracking;
+    Lock m_touchEventTrackingLock;
+    TouchEventTracking m_touchEventTracking WTF_GUARDED_BY_LOCK(m_touchEventTrackingLock);
 #endif
 };
 
