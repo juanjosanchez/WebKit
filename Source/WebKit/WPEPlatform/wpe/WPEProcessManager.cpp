@@ -213,6 +213,65 @@ void wpe_process_manager_terminate(WPEProcessManager* manager, guint64 processID
     WPE_PROCESS_MANAGER_GET_CLASS(manager)->terminate(manager, processID);
 }
 
+/**
+ * wpe_process_manager_ranks_processes:
+ * @manager: a #WPEProcessManager.
+ *
+ * Get whether @manager ranks the processes it launches, that is, whether it
+ * implements [vfunc@ProcessManager.acquire_priority] and
+ * [vfunc@ProcessManager.release_priority]. WebKit asks the default manager when
+ * it creates and launches its auxiliary processes, so set the default manager
+ * before WebKit launches any.
+ *
+ * Returns: %TRUE if @manager ranks processes, %FALSE otherwise.
+ */
+gboolean wpe_process_manager_ranks_processes(WPEProcessManager* manager)
+{
+    g_return_val_if_fail(WPE_IS_PROCESS_MANAGER(manager), FALSE);
+
+    auto* managerClass = WPE_PROCESS_MANAGER_GET_CLASS(manager);
+    return managerClass->acquire_priority && managerClass->release_priority;
+}
+
+/**
+ * wpe_process_manager_acquire_priority:
+ * @manager: a #WPEProcessManager.
+ * @process_id: the identifier of the process, as returned by
+ *   wpe_process_manager_launch().
+ * @priority: the #WPEProcessPriority to hold.
+ *
+ * Ask @manager to keep a process running at @priority until the returned hold
+ * is released. See [vfunc@ProcessManager.acquire_priority].
+ *
+ * Returns: an identifier for the hold, or 0 when @manager does not rank the process.
+ */
+guint64 wpe_process_manager_acquire_priority(WPEProcessManager* manager, guint64 processID, WPEProcessPriority priority)
+{
+    g_return_val_if_fail(WPE_IS_PROCESS_MANAGER(manager), 0);
+
+    if (!wpe_process_manager_ranks_processes(manager))
+        return 0;
+
+    return WPE_PROCESS_MANAGER_GET_CLASS(manager)->acquire_priority(manager, processID, priority);
+}
+
+/**
+ * wpe_process_manager_release_priority:
+ * @manager: a #WPEProcessManager.
+ * @priority_id: a hold returned by wpe_process_manager_acquire_priority().
+ *
+ * Release a hold taken with wpe_process_manager_acquire_priority().
+ */
+void wpe_process_manager_release_priority(WPEProcessManager* manager, guint64 priorityID)
+{
+    g_return_if_fail(WPE_IS_PROCESS_MANAGER(manager));
+    g_return_if_fail(priorityID);
+
+    auto* managerClass = WPE_PROCESS_MANAGER_GET_CLASS(manager);
+    if (managerClass->release_priority)
+        managerClass->release_priority(manager, priorityID);
+}
+
 static GRefPtr<WPEProcessManager> s_defaultProcessManager;
 
 /**

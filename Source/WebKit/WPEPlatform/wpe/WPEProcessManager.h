@@ -75,6 +75,22 @@ typedef enum {
     WPE_PROCESS_MANAGER_ERROR_LAUNCH_FAILED
 } WPEProcessManagerError;
 
+/**
+ * WPEProcessPriority:
+ * @WPE_PROCESS_PRIORITY_BACKGROUND: the process has work to finish, such as
+ *   parking a page in the back/forward cache or a reply WebKit waits for, but
+ *   nothing the user sees depends on it.
+ * @WPE_PROCESS_PRIORITY_FOREGROUND: the user sees or hears the process, for example
+ *   because it shows a visible page or plays sound, or the application waits on it.
+ *
+ * How much WebKit needs an auxiliary process to run. See
+ * [vfunc@ProcessManager.acquire_priority].
+ */
+typedef enum {
+    WPE_PROCESS_PRIORITY_BACKGROUND,
+    WPE_PROCESS_PRIORITY_FOREGROUND
+} WPEProcessPriority;
+
 #define WPE_TYPE_PROCESS_MANAGER (wpe_process_manager_get_type())
 WPE_DECLARE_DERIVABLE_TYPE (WPEProcessManager, wpe_process_manager, WPE, PROCESS_MANAGER, GObject)
 
@@ -84,6 +100,15 @@ WPE_DECLARE_DERIVABLE_TYPE (WPEProcessManager, wpe_process_manager, WPE, PROCESS
  *   See [vfunc@ProcessManager.launch] for details about the returned identifier.
  * @terminate: terminate a previously launched process, identified by the value
  *   returned by @launch.
+ * @acquire_priority: keep a process running at a #WPEProcessPriority until the
+ *   returned hold is released with @release_priority. WebKit calls it on its
+ *   main thread, for processes returned by @launch. Holds may overlap, and the
+ *   manager returns 0 for a process it does not rank, such as one it does not
+ *   know or that already ended. A hold identifier is never 0 and is not given
+ *   twice.
+ * @release_priority: release a hold returned by @acquire_priority. WebKit calls
+ *   it on its main thread, also after the process ended or was terminated, so
+ *   the manager ignores holds it no longer has.
  *
  * Subclass this to take over launching and terminating WebKit auxiliary
  * processes. This is required on Android, where processes cannot be spawned as
@@ -113,16 +138,52 @@ struct _WPEProcessManagerClass {
     guint64 (* launch)    (WPEProcessManager* manager, WPEProcessLaunchOptions* options, GError** error);
     void    (* terminate) (WPEProcessManager* manager, guint64 process_id);
 
+    /**
+     * WPEProcessManagerClass::acquire_priority:
+     * @manager: a #WPEProcessManager.
+     * @process_id: the identifier of the process, as returned by
+     *   [vfunc@ProcessManager.launch].
+     * @priority: the #WPEProcessPriority to hold.
+     *
+     * WebKit calls this when it needs a process to run at @priority, and
+     * releases the hold with [vfunc@ProcessManager.release_priority] when it no
+     * longer does. Holds on the same process may overlap: the process should
+     * run at the highest priority it holds. A process with no hold is idle,
+     * and the system may suspend it, or end it before others when memory runs
+     * low. WebKit takes a hold again before it needs an idle process.
+     *
+     * A manager that implements this lets WebKit rank the processes it
+     * launches; one that does not keeps them all running, as before.
+     *
+     * Returns: an identifier for the hold, or 0 when the process is not ranked.
+     */
+    guint64 (* acquire_priority) (WPEProcessManager* manager, guint64 process_id, WPEProcessPriority priority);
+
+    /**
+     * WPEProcessManagerClass::release_priority:
+     * @manager: a #WPEProcessManager.
+     * @priority_id: a hold returned by [vfunc@ProcessManager.acquire_priority].
+     *
+     * Releases a hold. It may come after the process ended.
+     */
+    void    (* release_priority) (WPEProcessManager* manager, guint64 priority_id);
+
     /*< private >*/
-    gpointer padding[8];
+    gpointer padding[6];
 };
 
-WPE_API GQuark   wpe_process_manager_error_quark (void);
-WPE_API guint64  wpe_process_manager_launch      (WPEProcessManager*       manager,
-                                                  WPEProcessLaunchOptions* options,
-                                                  GError**                 error);
-WPE_API void     wpe_process_manager_terminate   (WPEProcessManager*       manager,
-                                                  guint64                  process_id);
+WPE_API GQuark   wpe_process_manager_error_quark      (void);
+WPE_API guint64  wpe_process_manager_launch           (WPEProcessManager*       manager,
+                                                       WPEProcessLaunchOptions* options,
+                                                       GError**                 error);
+WPE_API void     wpe_process_manager_terminate        (WPEProcessManager*       manager,
+                                                       guint64                  process_id);
+WPE_API gboolean wpe_process_manager_ranks_processes  (WPEProcessManager*       manager);
+WPE_API guint64  wpe_process_manager_acquire_priority (WPEProcessManager*       manager,
+                                                       guint64                  process_id,
+                                                       WPEProcessPriority       priority);
+WPE_API void     wpe_process_manager_release_priority (WPEProcessManager*       manager,
+                                                       guint64                  priority_id);
 
 WPE_API WPEProcessManager *wpe_process_manager_get_default (void);
 WPE_API void               wpe_process_manager_set_default (WPEProcessManager*       manager);
