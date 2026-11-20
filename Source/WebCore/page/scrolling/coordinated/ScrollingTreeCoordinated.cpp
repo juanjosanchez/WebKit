@@ -461,6 +461,51 @@ void ScrollingTreeCoordinated::didDispatchTouchStart(TrackingType touchMoveTrack
     m_touchEventTracking.touchMoveTracking = mergeTrackingTypes(m_touchEventTracking.touchMoveTracking, touchMoveTracking);
     m_touchEventTracking.touchEndTracking = mergeTrackingTypes(m_touchEventTracking.touchEndTracking, touchEndTracking);
 }
+
+#if ENABLE(TOUCH_ACTION_REGIONS)
+void ScrollingTreeCoordinated::touchPanBegan(FloatPoint touchStartPoint, FloatSize delta)
+{
+    // https://w3c.github.io/pointerevents/#determining-supported-touch-behavior
+    OptionSet<TouchAction> touchActions { TouchAction::Auto };
+    if (auto offset = mainFrameScrollOffset()) {
+        touchStartPoint.move(*offset);
+        if (auto layerAndPoint = findLayerOfEventRegionAtPoint(*this, touchStartPoint)) {
+            Locker layerLocker { layerAndPoint->first->lock() };
+            touchActions = layerAndPoint->first->eventRegion().touchActionsForPoint(roundedIntPoint(layerAndPoint->second));
+        }
+    }
+
+    bool horizontal = touchActions.containsAny({ TouchAction::Auto, TouchAction::Manipulation, TouchAction::PanX });
+    bool vertical = touchActions.containsAny({ TouchAction::Auto, TouchAction::Manipulation, TouchAction::PanY });
+    auto axes = TouchPanAxes::Both;
+    if (!horizontal || !vertical) {
+        if (std::abs(delta.width()) >= std::abs(delta.height()))
+            axes = horizontal ? TouchPanAxes::Horizontal : TouchPanAxes::None;
+        else
+            axes = vertical ? TouchPanAxes::Vertical : TouchPanAxes::None;
+    }
+
+    Locker locker { m_touchEventTrackingLock };
+    m_touchPanAxes = axes;
+}
+
+std::optional<FloatSize> ScrollingTreeCoordinated::touchPanDeltaAllowedByTouchAction(FloatSize delta)
+{
+    Locker locker { m_touchEventTrackingLock };
+    switch (m_touchPanAxes) {
+    case TouchPanAxes::None:
+        return std::nullopt;
+    case TouchPanAxes::Horizontal:
+        return FloatSize { delta.width(), 0 };
+    case TouchPanAxes::Vertical:
+        return FloatSize { 0, delta.height() };
+    case TouchPanAxes::Both:
+        return delta;
+    }
+    ASSERT_NOT_REACHED();
+    return delta;
+}
+#endif
 #endif
 
 } // namespace WebCore

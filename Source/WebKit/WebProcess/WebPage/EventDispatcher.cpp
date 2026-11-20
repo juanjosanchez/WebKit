@@ -208,6 +208,32 @@ void EventDispatcher::wheelEvent(PageIdentifier pageID, Ref<WebWheelEvent>&& whe
         return;
     }
 #endif
+#if ENABLE(COORDINATED_TOUCH_EVENTS) && ENABLE(TOUCH_ACTION_REGIONS)
+    // A pan on a touchscreen scrolls only in the directions that the touch-action where its touch began allows.
+    if (wheelEvent->inputSource() == WebEventInputSource::Touch) {
+        RefPtr<WebCore::ThreadedScrollingTree> scrollingTree;
+        {
+            Locker locker { m_scrollingTreesLock };
+            scrollingTree = m_scrollingTrees.get(pageID);
+        }
+        if (scrollingTree) {
+            // The gesture controller gives all the wheel events of a pan the point where its touch began.
+            if (wheelEvent->phase() == WebWheelEvent::Phase::Began)
+                scrollingTree->touchPanBegan(wheelEvent->position(), wheelEvent->delta());
+            auto allowedDelta = scrollingTree->touchPanDeltaAllowedByTouchAction(wheelEvent->delta());
+            if (!allowedDelta) {
+                completionHandler(false);
+                return;
+            }
+            if (*allowedDelta != wheelEvent->delta()) {
+                auto wheelData = wheelEvent->wheelData();
+                wheelData.delta = *allowedDelta;
+                wheelData.wheelTicks = { allowedDelta->width() ? wheelData.wheelTicks.width() : 0, allowedDelta->height() ? wheelData.wheelTicks.height() : 0 };
+                wheelEvent = WebWheelEvent::create(WebEventData { wheelEvent->eventData() }, WTF::move(wheelData));
+            }
+        }
+    }
+#endif
     internalWheelEvent(pageID, wheelEvent, rubberBandableEdges, WTF::move(completionHandler));
 }
 

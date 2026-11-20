@@ -61,6 +61,10 @@ private:
 #if ENABLE(COORDINATED_TOUCH_EVENTS)
     TrackingType eventTrackingTypeForTouchEvent(const PlatformTouchEvent&) final;
     void didDispatchTouchStart(TrackingType touchMoveTracking, TrackingType touchEndTracking) final;
+#if ENABLE(TOUCH_ACTION_REGIONS)
+    void touchPanBegan(FloatPoint touchStartPoint, FloatSize delta) final;
+    std::optional<FloatSize> touchPanDeltaAllowedByTouchAction(FloatSize) final;
+#endif
 
     struct TouchEventTracking {
         TrackingType touchForceChangedTracking { TrackingType::NotTracking };
@@ -86,6 +90,11 @@ private:
     };
     Lock m_touchEventTrackingLock;
     TouchEventTracking m_touchEventTracking WTF_GUARDED_BY_LOCK(m_touchEventTrackingLock);
+#if ENABLE(TOUCH_ACTION_REGIONS)
+    // The axes that the current touch pan may scroll, chosen when it begins.
+    enum class TouchPanAxes : uint8_t { None, Horizontal, Vertical, Both };
+    TouchPanAxes m_touchPanAxes WTF_GUARDED_BY_LOCK(m_touchEventTrackingLock) { TouchPanAxes::Both };
+#endif
 #endif
 };
 

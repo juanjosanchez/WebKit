@@ -75,6 +75,13 @@ public:
     // The page dispatched a touchstart, whose listeners may have added touch listeners. The event regions show them only
     // after the next rendering update, so the page reports the tracking that the touch moves and ends now need.
     virtual void didDispatchTouchStart(TrackingType /* touchMoveTracking */, TrackingType /* touchEndTracking */) { }
+#if ENABLE(TOUCH_ACTION_REGIONS)
+    // A pan on a touchscreen begins with the given delta. The touch-action at the point where its touch began and the
+    // direction of the delta choose the axes that the pan may scroll.
+    virtual void touchPanBegan(FloatPoint /* touchStartPoint */, FloatSize /* delta */) { }
+    // The part of a delta of the current touch pan that its axes allow, or nothing when they allow none.
+    virtual std::optional<FloatSize> touchPanDeltaAllowedByTouchAction(FloatSize delta) { return delta; }
+#endif
 #endif
 
 protected:
