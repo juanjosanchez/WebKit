@@ -1,0 +1,4 @@
+
+
+PASS The contextmenu event of a long press that comes while the finger is down belongs to its touch.
+

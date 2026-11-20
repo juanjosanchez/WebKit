@@ -583,6 +583,22 @@ RefPtr<PointerEvent> PointerCaptureController::pointerEventForMouseEvent(const M
     return pointerEvent;
 }
 
+#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
+RefPtr<PointerEvent> PointerCaptureController::contextMenuEventForPressedTouch(const MouseEvent& mouseEvent)
+{
+    ASSERT(mouseEvent.type() == eventNames().contextmenuEvent);
+
+    // A long press can ask for the context menu while its finger is still down, with a secondary click synthesized from
+    // the touch. The contextmenu event then belongs to the primary touch, which is the one a long press follows, rather
+    // than to the mouse.
+    for (auto& [pointerId, capturingData] : m_activePointerIdsToCapturingData) {
+        if (capturingData->pointerType == touchPointerEventType() && capturingData->isPrimary && capturingData->pointerIsPressed)
+            return PointerEvent::create(mouseEvent.type(), mouseEvent.button(), mouseEvent, pointerId, touchPointerEventType());
+    }
+    return nullptr;
+}
+#endif
+
 void PointerCaptureController::dispatchEvent(PointerEvent& event, EventTarget* target)
 {
     if (!target || event.target())
