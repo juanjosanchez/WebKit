@@ -11802,7 +11802,13 @@ void WebPageProxy::didReceiveTitleForFrame(IPC::Connection& connection, FrameIde
 #if PLATFORM(IOS_FAMILY)
         deviceClassIsSmallScreen = PAL::deviceClassIsSmallScreen();
 #endif
-        if (!deviceClassIsSmallScreen) {
+        // Where suspended processes keep running, a hidden page goes on updating its title anyway, and the activity
+        // would only make the system end other processes first.
+        bool suspendedProcessesKeepRunning = false;
+#if HAVE(RUNNING_SUSPENDED_PROCESSES)
+        suspendedProcessesKeepRunning = true;
+#endif
+        if (!deviceClassIsSmallScreen && !suspendedProcessesKeepRunning) {
             bool isTitleChangeLikelyDueToUserAction = false;
 
 #if !PLATFORM(IOS_FAMILY)
