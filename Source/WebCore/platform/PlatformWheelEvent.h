@@ -163,6 +163,17 @@ public:
     MouseEventInputSource inputSource() const { return m_inputSource; }
     void setInputSource(MouseEventInputSource inputSource) { m_inputSource = inputSource; }
 
+    // GTK and WPE scroll for a pan on a touchscreen with wheel events, which WPE marks as touch. The page gets touch
+    // and pointer events for the pan, so these wheel events scroll but are not dispatched to it.
+    bool isFromTouchScreenPan() const
+    {
+#if PLATFORM(GTK) || ENABLE(WPE_PLATFORM)
+        return m_inputSource == MouseEventInputSource::Touch;
+#else
+        return false;
+#endif
+    }
+
 #if PLATFORM(COCOA)
     unsigned scrollCount() const { return m_scrollCount; }
     FloatSize unacceleratedScrollingDelta() const { return { m_unacceleratedScrollingDeltaX, m_unacceleratedScrollingDeltaY }; }

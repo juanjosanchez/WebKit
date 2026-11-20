@@ -72,7 +72,11 @@ struct WebWheelEventData {
     MonotonicTime ioHIDEventTimestamp;
     std::optional<WebCore::FloatSize> rawPlatformDelta;
     WebWheelEventMomentumEndType momentumEndType { WebWheelEventMomentumEndType::Unknown };
+#endif
+#if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
     WebEventInputSource inputSource { WebEventInputSource::Default };
+#endif
+#if PLATFORM(COCOA)
     float momentumFastScrollMultiplier { 1 };
 #endif
 };
@@ -124,10 +128,12 @@ public:
     void setRawPlatformDelta(std::optional<WebCore::FloatSize>&& delta) { m_data.rawPlatformDelta = WTF::move(delta); }
     uint32_t scrollCount() const { return m_data.scrollCount; }
     const WebCore::FloatSize& unacceleratedScrollingDelta() const LIFETIME_BOUND { return m_data.unacceleratedScrollingDelta; }
-    WebEventInputSource inputSource() const { return m_data.inputSource; }
     float momentumFastScrollMultiplier() const { return m_data.momentumFastScrollMultiplier; }
     void setMomentumFastScrollMultiplier(float multiplier) { m_data.momentumFastScrollMultiplier = multiplier; }
 #endif // PLATFORM(COCOA)
+#if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
+    WebEventInputSource inputSource() const { return m_data.inputSource; }
+#endif
 
     bool isMomentumEvent() const { return momentumPhase() != Phase::None && momentumPhase() != Phase::WillBegin; }
 

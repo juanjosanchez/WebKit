@@ -106,6 +106,14 @@ OptionSet<WheelEventProcessingSteps> ScrollingTree::computeWheelProcessingSteps(
 
     auto position = rootNode->viewToContentsPoint(wheelEvent.position(), m_treeState.mainFrameScrollPosition);
 
+    // A pan on a touchscreen scrolls without dispatching wheel events. Only areas that cannot scroll off the main thread,
+    // which make up the synchronous wheel region with wheel event regions, need the main thread.
+    if (wheelEvent.isFromTouchScreenPan()) {
+        if (m_treeState.eventTrackingRegions.trackingTypeForPoint(EventTrackingRegions::EventType::Wheel, roundedIntPoint(position)) == TrackingType::Synchronous)
+            return { WheelEventProcessingSteps::SynchronousScrolling };
+        return { WheelEventProcessingSteps::AsyncScrolling };
+    }
+
     if (!m_treeState.eventTrackingRegions.isEmpty()) {
         IntPoint roundedPosition = roundedIntPoint(position);
 

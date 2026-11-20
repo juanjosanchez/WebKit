@@ -57,6 +57,10 @@ bool WebWheelEventCoalescer::canCoalesce(const WebWheelEvent& a, const WebWheelE
     if (a.hasPreciseScrollingDeltas() != b.hasPreciseScrollingDeltas())
         return false;
 #endif
+#if PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
+    if (a.inputSource() != b.inputSource())
+        return false;
+#endif
 
     return true;
 }
@@ -101,6 +105,7 @@ Ref<WebWheelEvent> WebWheelEventCoalescer::coalesce(const WebWheelEvent& a, cons
         .phase = b.phase(),
         .momentumPhase = b.momentumPhase(),
         .hasPreciseScrollingDeltas = b.hasPreciseScrollingDeltas(),
+        .inputSource = b.inputSource(),
     };
 #else
     auto wheelData = WebWheelEventData {

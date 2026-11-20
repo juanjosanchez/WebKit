@@ -373,6 +373,7 @@ public:
 #endif
 #if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
         m_hasPreciseScrollingDeltas = webEvent.hasPreciseScrollingDeltas();
+        m_inputSource = platform(webEvent.inputSource());
 #endif
 #if PLATFORM(COCOA)
         m_ioHIDEventTimestamp = webEvent.ioHIDEventTimestamp();
@@ -380,7 +381,6 @@ public:
         m_scrollCount = webEvent.scrollCount();
         m_unacceleratedScrollingDeltaX = webEvent.unacceleratedScrollingDelta().width();
         m_unacceleratedScrollingDeltaY = webEvent.unacceleratedScrollingDelta().height();
-        m_inputSource = platform(webEvent.inputSource());
 #endif
     }
 };

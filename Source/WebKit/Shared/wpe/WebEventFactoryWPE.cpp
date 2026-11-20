@@ -238,6 +238,7 @@ WebWheelEventInit WebEventFactory::createWebWheelEvent(WPEEvent* event, WebWheel
             .phase = phase,
             .momentumPhase = WebWheelEvent::Phase::None,
             .hasPreciseScrollingDeltas = hasPreciseScrollingDeltas,
+            .inputSource = wpe_event_get_input_source(event) == WPE_INPUT_SOURCE_TOUCHSCREEN ? WebEventInputSource::Touch : WebEventInputSource::Default,
         }
     };
 }

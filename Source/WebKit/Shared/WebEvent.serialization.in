@@ -284,7 +284,11 @@ enum class WebKit::WebWheelEventMomentumEndType : uint8_t {
     MonotonicTime ioHIDEventTimestamp;
     std::optional<WebCore::FloatSize> rawPlatformDelta;
     WebKit::WebWheelEventMomentumEndType momentumEndType;
+#endif
+#if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
     WebKit::WebEventInputSource inputSource;
+#endif
+#if PLATFORM(COCOA)
     float momentumFastScrollMultiplier;
 #endif
 };

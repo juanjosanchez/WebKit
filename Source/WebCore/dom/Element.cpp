@@ -645,8 +645,9 @@ bool Element::dispatchWheelEvent(const PlatformWheelEvent& platformEvent, Option
     // websites will break. They need to be dispatched because dispatching them will call into the default
     // event handler, and our platform code will correctly handle the phase changes. Calling stopPropagation()
     // will prevent the event from being sent to the DOM, but will still call the default event handler.
+    // Events that scroll for a pan on a touchscreen are not sent to the DOM either: the page gets touch events for the pan.
     // FIXME: Move this logic into WheelEvent::create.
-    if (platformEvent.delta().isZero())
+    if (platformEvent.delta().isZero() || platformEvent.isFromTouchScreenPan())
         event->stopPropagation();
     else
         processing.add(EventHandling::DispatchedToDOM);

@@ -118,6 +118,8 @@ WTF::TextStream& operator<<(WTF::TextStream& ts, const WebWheelEvent& event)
     ts.dumpProperty("rawPlatformDelta"_s, event.rawPlatformDelta());
     ts.dumpProperty("scrollCount"_s, event.scrollCount());
     ts.dumpProperty("unacceleratedScrollingDelta"_s, event.unacceleratedScrollingDelta());
+#endif
+#if PLATFORM(COCOA) || PLATFORM(GTK) || USE(LIBWPE) || ENABLE(WPE_PLATFORM)
     ts.dumpProperty("inputSource"_s, event.inputSource() == WebEventInputSource::Touch ? "touch"_s : "default"_s);
 #endif
     return ts;
