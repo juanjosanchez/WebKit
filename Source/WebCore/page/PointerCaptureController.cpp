@@ -356,7 +356,7 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
 
     dispatchEvent(pointerEvent, &target);
 
-    if (pointerEvent->type() != eventNames().pointerupEvent)
+    if (pointerEvent->type() != eventNames().pointerupEvent && pointerEvent->type() != eventNames().pointercancelEvent)
         return;
 
     auto dispatchPointerOutAndLeave = [weakPage = m_page, currentTarget, platformTouchEvent, index, isPrimary, view = Ref { view }, touchDelta](SyntheticClickResult result) {
@@ -376,6 +376,9 @@ void PointerCaptureController::dispatchEventForTouchAtIndex(EventTarget& target,
         // https://w3c.github.io/pointerevents/#the-pointerup-event
         // For input devices that do not support hover, a user agent MUST also fire a pointer event named pointerout followed by a
         // pointer event named pointerleave after dispatching the pointerup event.
+        // https://w3c.github.io/pointerevents/#the-pointercancel-event
+        // After firing the pointercancel event, a user agent MUST also fire a pointer event named pointerout followed by firing a
+        // pointer event named pointerleave.
         page->pointerCaptureController().dispatchOverOrOutEvent(eventNames().pointeroutEvent, currentTarget.get(), platformTouchEvent, index, isPrimary, view.get(), touchDelta);
         page->pointerCaptureController().dispatchEnterOrLeaveEvent(eventNames().pointerleaveEvent, *currentTarget, platformTouchEvent, index, isPrimary, view.get(), touchDelta);
     };
@@ -681,7 +684,10 @@ void PointerCaptureController::pointerEventWasDispatched(const PointerEvent& eve
     // override for the pointerId of the pointerup or pointercancel event that was just dispatched, and then run Process Pending
     // Pointer Capture steps to fire lostpointercapture if necessary.
     // https://w3c.github.io/pointerevents/#implicit-release-of-pointer-capture
-    if (event.type() == eventNames().pointerupEvent) {
+    if (event.type() == eventNames().pointerupEvent || event.type() == eventNames().pointercancelEvent) {
+        // A cancelled pointer leaves the active buttons state, as pointerEventWillBeDispatched() does for pointerup.
+        if (event.type() == eventNames().pointercancelEvent)
+            capturingData->pointerIsPressed = false;
         capturingData->pendingTargetOverride = nullptr;
         processPendingPointerCapture(event.pointerId());
     }

@@ -336,6 +336,7 @@ webkit.org/b/327438 fast/css-grid-layout/flex-content-sized-columns-resize.html 
 webkit.org/b/327438 fast/dynamic/window-resize-scrollbars-test.html [ Timeout ]
 webkit.org/b/327438 fast/events/clipboard-dataTransferItemList.html [ Timeout ]
 webkit.org/b/327438 fast/events/touch/send-oncancel-event.html [ Timeout ]
+webkit.org/b/327438 fast/events/touch/touch-cancel-releases-pointer-capture.html [ Timeout ]
 webkit.org/b/327438 fast/fixed-layout/fixed-layout.html [ Timeout ]
 webkit.org/b/327438 media/crash-closing-page-with-media-as-plugin-fallback.html [ Timeout ]
 webkit.org/b/327438 fast/frames/detached-frame-pending-async-script-collected.html [ Timeout ]

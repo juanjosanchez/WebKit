@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="../../../resources/testharness.js"></script>
+<script src="../../../resources/testharnessreport.js"></script>
+</head>
+<body>
+<button id="target" style="width: 100px; height: 100px"></button>
+<script>
+const target = document.getElementById("target");
+
+function listen(test, types, listener) {
+    const controller = new AbortController();
+    test.add_cleanup(() => controller.abort());
+    for (const type of types)
+        target.addEventListener(type, listener, { signal: controller.signal });
+}
+
+promise_test(async test => {
+    const events = [];
+    listen(test, ["gotpointercapture", "pointercancel", "lostpointercapture", "pointerout", "pointerleave", "touchcancel"], event => events.push(event.type));
+    // Once the pointer is cancelled, it is no longer in the active buttons state, so it cannot be captured again.
+    listen(test, ["lostpointercapture"], event => target.setPointerCapture(event.pointerId));
+    const touchcancel = new Promise(resolve => listen(test, ["touchcancel"], resolve));
+
+    eventSender.clearTouchPoints();
+    eventSender.addTouchPoint(50, 50);
+    await eventSender.asyncTouchStart();
+    eventSender.cancelTouchPoint(0);
+    await eventSender.asyncTouchCancel();
+    await touchcancel;
+    assert_array_equals(events, ["gotpointercapture", "pointercancel", "lostpointercapture", "pointerout", "pointerleave", "touchcancel"]);
+}, "A cancelled touch releases its pointer capture and leaves its target.");
+</script>
+</body>
+</html>

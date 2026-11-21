@@ -1,0 +1,4 @@
+
+
+PASS A cancelled touch releases its pointer capture and leaves its target.
+
