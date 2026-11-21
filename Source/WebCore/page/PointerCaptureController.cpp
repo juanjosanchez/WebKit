@@ -530,13 +530,17 @@ void PointerCaptureController::clearUnmatchedMouseDown(PointerID pointerID)
         capturingData->pointerIsPressed = false;
 }
 
-RefPtr<PointerEvent> PointerCaptureController::pointerEventForMouseEvent(const MouseEvent& mouseEvent, PointerID pointerId, const String& pointerType)
+RefPtr<PointerEvent> PointerCaptureController::pointerEventForMouseEvent(const MouseEvent& mouseEvent, PointerID pointerId, const String& pointerType, MouseEventIsFromTouch mouseEventIsFromTouch)
 {
     // If we already have known touches then we cannot dispatch a mouse event,
     // for instance in the case of a long press to initiate a system drag.
-    for (auto& capturingData : m_activePointerIdsToCapturingData.values()) {
-        if (capturingData->pointerType == touchPointerEventType() && capturingData->state == CapturingData::State::Ready)
-            return nullptr;
+    // A mouse event synthesized from a touch is not held back, though. The click of a tap comes once its touch has ended,
+    // and by then the touch of the next tap can be down, as when taps follow each other quickly.
+    if (mouseEventIsFromTouch == MouseEventIsFromTouch::No) {
+        for (auto& capturingData : m_activePointerIdsToCapturingData.values()) {
+            if (capturingData->pointerType == touchPointerEventType() && capturingData->state == CapturingData::State::Ready)
+                return nullptr;
+        }
     }
 
     const auto& type = mouseEvent.type();

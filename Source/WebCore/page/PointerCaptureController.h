@@ -62,7 +62,8 @@ public:
     void pointerLockWasApplied();
     void elementWasRemoved(Element&);
 
-    RefPtr<PointerEvent> pointerEventForMouseEvent(const MouseEvent&, PointerID, const String& pointerType);
+    enum class MouseEventIsFromTouch : bool { No, Yes };
+    RefPtr<PointerEvent> pointerEventForMouseEvent(const MouseEvent&, PointerID, const String& pointerType, MouseEventIsFromTouch);
 #if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
     RefPtr<PointerEvent> contextMenuEventForPressedTouch(const MouseEvent&);
 #endif

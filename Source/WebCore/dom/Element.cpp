@@ -550,12 +550,16 @@ static ShouldIgnoreMouseEvent dispatchPointerEventIfNeeded(Element& element, con
         }
 
         RefPtr<PointerEvent> pointerEvent;
+        auto mouseEventIsFromTouch = PointerCaptureController::MouseEventIsFromTouch::No;
 #if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
-        if (isSyntheticTouchEvent && mouseEvent.type() == eventNames().contextmenuEvent)
-            pointerEvent = pointerCaptureController.contextMenuEventForPressedTouch(mouseEvent);
+        if (isSyntheticTouchEvent) {
+            if (mouseEvent.type() == eventNames().contextmenuEvent)
+                pointerEvent = pointerCaptureController.contextMenuEventForPressedTouch(mouseEvent);
+            mouseEventIsFromTouch = PointerCaptureController::MouseEventIsFromTouch::Yes;
+        }
 #endif
         if (!pointerEvent)
-            pointerEvent = pointerCaptureController.pointerEventForMouseEvent(mouseEvent, platformEvent.pointerId(), platformEvent.pointerType());
+            pointerEvent = pointerCaptureController.pointerEventForMouseEvent(mouseEvent, platformEvent.pointerId(), platformEvent.pointerType(), mouseEventIsFromTouch);
 
         if (pointerEvent) {
             pointerCaptureController.dispatchEvent(*pointerEvent, &element);

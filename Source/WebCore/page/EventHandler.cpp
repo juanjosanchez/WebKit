@@ -5740,6 +5740,17 @@ std::expected<bool, RemoteFrameGeometryTransformer> EventHandler::handleTouchEve
     for (unsigned index = 0; index < points.size(); index++) {
         auto& point = points[index];
         PlatformTouchPoint::State pointState = point.state();
+#if PLATFORM(WPE) || PLATFORM(GTK)
+        // The pointer of a touch stops being active when the touch ends, even if the end does not reach the page, for
+        // instance because the page no longer listens to touch or pointer events. On iOS, the UI process removes the
+        // pointer instead, once it stops tracking the touch.
+        auto removePointerOfEndedTouch = makeScopeExit([&] {
+            if (pointState != PlatformTouchPoint::TouchReleased && pointState != PlatformTouchPoint::TouchCancelled)
+                return;
+            if (RefPtr page = frame->page())
+                page->pointerCaptureController().touchWithIdentifierWasRemoved(PointerEvent::pointerIdForTouchPoint(point));
+        });
+#endif
         LayoutPoint pagePoint = LayoutPoint(frame->view()->windowToContents(flooredIntPoint(point.pos())));
 
         OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::TouchEvent };

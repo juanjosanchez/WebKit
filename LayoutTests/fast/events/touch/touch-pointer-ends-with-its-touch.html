@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<script src="../../../resources/testharness.js"></script>
+<script src="../../../resources/testharnessreport.js"></script>
+</head>
+<body>
+<button id="target" style="width: 100px; height: 100px"></button>
+<script>
+const target = document.getElementById("target");
+
+function listen(test, eventTarget, types, listener) {
+    const controller = new AbortController();
+    test.add_cleanup(() => controller.abort());
+    for (const type of types)
+        eventTarget.addEventListener(type, listener, { signal: controller.signal });
+}
+
+async function tap(x, y) {
+    eventSender.clearTouchPoints();
+    eventSender.addTouchPoint(x, y);
+    await eventSender.asyncTouchStart();
+    eventSender.releaseTouchPoint(0);
+    await eventSender.asyncTouchEnd();
+}
+
+async function mouseClick(x, y) {
+    eventSender.leapForward(1000);
+    await eventSender.asyncMouseMoveTo(x, y);
+    await eventSender.asyncMouseDown();
+    await eventSender.asyncMouseUp();
+}
+
+promise_test(async test => {
+    // The page stops listening during the touch, so the end of the touch does not reach it. This is the first touch of
+    // the page, so that its pointer is not left over from an earlier touch with the same identifier.
+    let pointerId;
+    target.addEventListener("pointerdown", event => pointerId = event.pointerId, { once: true });
+    await tap(50, 50);
+    assert_not_equals(pointerId, undefined, "the touch reached the page");
+    assert_throws_dom("NotFoundError", () => target.setPointerCapture(pointerId));
+
+    const events = [];
+    listen(test, target, ["pointerdown", "pointerup"], event => events.push(`${event.type}:${event.pointerType}`));
+    await mouseClick(50, 50);
+    assert_array_equals(events, ["pointerdown:mouse", "pointerup:mouse"]);
+}, "The pointer of a touch ends with the touch even if the page stopped listening, and no longer holds back the mouse.");
+
+promise_test(async test => {
+    let pointerId;
+    listen(test, target, ["pointerdown"], event => pointerId = event.pointerId);
+    await tap(50, 50);
+    assert_not_equals(pointerId, undefined, "the touch reached the page");
+    assert_throws_dom("NotFoundError", () => target.setPointerCapture(pointerId));
+}, "The pointer of a touch is no longer active once the touch ends.");
+
+promise_test(async test => {
+    // A finger stays down away from the target. A first finger only makes it take the second touch identifier, which
+    // touch emulation does not use.
+    let touchPointerdowns = 0;
+    listen(test, document, ["pointerdown"], event => {
+        if (event.pointerType == "touch")
+            touchPointerdowns++;
+    });
+    eventSender.clearTouchPoints();
+    eventSender.addTouchPoint(300, 300);
+    await eventSender.asyncTouchStart();
+    eventSender.addTouchPoint(310, 310);
+    await eventSender.asyncTouchStart();
+    eventSender.releaseTouchPoint(0);
+    await eventSender.asyncTouchEnd();
+    test.add_cleanup(async () => {
+        eventSender.releaseTouchPoint(0);
+        await eventSender.asyncTouchEnd();
+    });
+    assert_equals(touchPointerdowns, 2, "both touches reached the page");
+
+    // Touch emulation makes a tap out of a mouse click. Its click comes once its touch has ended, as when taps follow
+    // each other quickly and the touch of the next one is down. The tap has a target of its own, so that clicks that
+    // some platforms make out of the touches above are not counted.
+    internals.settings.setTouchEventEmulationEnabled(true);
+    test.add_cleanup(() => internals.settings.setTouchEventEmulationEnabled(false));
+    const tapTarget = document.createElement("div");
+    tapTarget.style.cssText = "position: absolute; left: 150px; top: 0; width: 100px; height: 100px";
+    document.body.append(tapTarget);
+    test.add_cleanup(() => tapTarget.remove());
+    let clicks = 0;
+    listen(test, tapTarget, ["click"], () => clicks++);
+    await mouseClick(200, 50);
+    assert_equals(clicks, 1);
+}, "The click of a tap is not held back by another touch that is down.");
+</script>
+</body>
+</html>

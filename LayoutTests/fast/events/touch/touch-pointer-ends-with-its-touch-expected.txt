@@ -1,0 +1,6 @@
+
+
+PASS The pointer of a touch ends with the touch even if the page stopped listening, and no longer holds back the mouse.
+PASS The pointer of a touch is no longer active once the touch ends.
+PASS The click of a tap is not held back by another touch that is down.
+
