@@ -110,8 +110,9 @@ IconDatabase::~IconDatabase()
     ASSERT(isMainRunLoop());
 
     m_workQueue->dispatchSync([&] {
+        // The prune timer belongs to the work queue's run loop, so destroy it here even if the database is closed.
+        m_pruneTimer = nullptr;
         if (m_db->isOpen()) {
-            m_pruneTimer = nullptr;
             clearStatements();
             m_db->close();
         }
@@ -228,7 +229,10 @@ void IconDatabase::clearStatements()
 void IconDatabase::pruneTimerFired()
 {
     ASSERT(!isMainRunLoop());
-    ASSERT(m_db->isOpen());
+
+    // clear() closes the database if it fails to create the tables again.
+    if (!m_db->isOpen())
+        return;
 
     if (!m_pruneIconsStatement) {
         m_pruneIconsStatement = m_db->prepareStatement("DELETE FROM IconInfo WHERE stamp <= (?);"_s);
