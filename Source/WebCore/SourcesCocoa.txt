@@ -188,7 +188,6 @@ editing/SmartReplaceCF.cpp
 editing/cocoa/AlternativeTextContextController.mm @nonARC
 editing/cocoa/AlternativeTextUIController.mm @nonARC
 editing/cocoa/AttributedString.mm @nonARC
-editing/cocoa/AutofillElements.cpp
 editing/cocoa/DataDetection.mm @nonARC
 editing/cocoa/DictionaryLookup.mm @nonARC
 editing/cocoa/EditorCocoa.mm @nonARC
