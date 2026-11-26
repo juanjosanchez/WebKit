@@ -457,6 +457,13 @@ webkit_settings_set_enable_spatial_navigation                  (WebKitSettings *
                                                                 gboolean        enabled);
 
 WEBKIT_API gboolean
+webkit_settings_get_enable_login_form_autofill                 (WebKitSettings *settings);
+
+WEBKIT_API void
+webkit_settings_set_enable_login_form_autofill                 (WebKitSettings *settings,
+                                                                gboolean        enabled);
+
+WEBKIT_API gboolean
 webkit_settings_get_enable_mediasource                         (WebKitSettings *settings);
 
 WEBKIT_API void

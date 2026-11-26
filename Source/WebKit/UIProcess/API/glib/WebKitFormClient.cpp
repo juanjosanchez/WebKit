@@ -23,6 +23,7 @@
 #include "APIFormClient.h"
 #include "WebFormSubmissionListenerProxy.h"
 #include "WebKitFormSubmissionRequestPrivate.h"
+#include "WebKitLoginFormPrivate.h"
 #include "WebKitWebViewPrivate.h"
 #include <wtf/glib/GRefPtr.h>
 #include <wtf/glib/WTFGType.h>
@@ -41,6 +42,24 @@ private:
     {
         GRefPtr<WebKitFormSubmissionRequest> request = adoptGRef(webkitFormSubmissionRequestCreate(values, WebFormSubmissionListenerProxy::create(WTF::move(completionHandler))));
         webkitWebViewSubmitFormRequest(m_webView, request.get());
+    }
+
+    void focusedLoginFormChanged(WebPageProxy&, const std::optional<LoginForm>& form, const std::optional<WebCore::SecurityOriginData>& origin) override
+    {
+        if (!form || !origin) {
+            webkitWebViewSetFocusedLoginForm(m_webView, nullptr);
+            return;
+        }
+        WebKitLoginForm* loginForm = webkitLoginFormCreate(*form, *origin);
+        webkitWebViewSetFocusedLoginForm(m_webView, loginForm);
+        webkit_login_form_unref(loginForm);
+    }
+
+    void loginFormSubmitted(WebPageProxy&, const LoginForm& form, const WebCore::SecurityOriginData& origin) override
+    {
+        WebKitLoginForm* loginForm = webkitLoginFormCreate(form, origin);
+        webkitWebViewLoginFormSubmitted(m_webView, loginForm);
+        webkit_login_form_unref(loginForm);
     }
 
     WebKitWebView* m_webView;

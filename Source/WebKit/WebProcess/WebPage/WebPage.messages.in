@@ -469,6 +469,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
 #endif
 #if PLATFORM(GTK) || PLATFORM(WPE)
     FailedToShowPopupMenu()
+    AutofillLoginForm(struct WebCore::ElementContext focusedField, Vector<std::pair<WebCore::ElementContext, String>> values)
 #endif
 
 #if ENABLE(CONTEXT_MENUS)

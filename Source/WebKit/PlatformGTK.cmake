@@ -78,6 +78,7 @@ list(APPEND WebKit_SERIALIZATION_IN_FILES
     Shared/glib/CoreIPCGVariant.serialization.in
     Shared/glib/DMABufBufferAttributes.serialization.in
     Shared/glib/InputMethodState.serialization.in
+    Shared/glib/LoginForm.serialization.in
     Shared/glib/RenderProcessInfo.serialization.in
     Shared/glib/RendererBufferFormat.serialization.in
     Shared/glib/RendererBufferTransportMode.serialization.in
@@ -176,6 +177,7 @@ set(WebKitGTK_HEADER_TEMPLATES
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitImage.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitInputMethodContext.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitInstallMissingMediaPluginsPermissionRequest.h.in
+    ${WEBKIT_DIR}/UIProcess/API/glib/WebKitLoginForm.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitMediaKeySystemPermissionRequest.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitMemoryPressureSettings.h.in
     ${WEBKIT_DIR}/UIProcess/API/glib/WebKitNavigationAction.h.in

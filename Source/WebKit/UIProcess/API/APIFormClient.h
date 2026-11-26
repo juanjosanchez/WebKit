@@ -28,6 +28,11 @@
 #include <wtf/CompletionHandler.h>
 #include <wtf/TZoneMallocInlines.h>
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+#include "LoginForm.h"
+#include <WebCore/SecurityOriginData.h>
+#endif
+
 namespace WebKit {
 struct FrameInfoData;
 class WebFrameProxy;
@@ -46,6 +51,12 @@ public:
     {
         completionHandler();
     }
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    // The origin is the one of the frame of the form, as the UI process knows it, and only http and https ones.
+    virtual void focusedLoginFormChanged(WebKit::WebPageProxy&, const std::optional<WebKit::LoginForm>&, const std::optional<WebCore::SecurityOriginData>&) { }
+    virtual void loginFormSubmitted(WebKit::WebPageProxy&, const WebKit::LoginForm&, const WebCore::SecurityOriginData&) { }
+#endif
 };
 
 } // namespace API

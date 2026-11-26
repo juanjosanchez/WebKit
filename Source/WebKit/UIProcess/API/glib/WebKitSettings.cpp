@@ -193,6 +193,7 @@ enum {
     PROP_ENABLE_WEBRTC,
     PROP_DISABLE_WEB_SECURITY,
     PROP_WEBRTC_UDP_PORTS_RANGE,
+    PROP_ENABLE_LOGIN_FORM_AUTOFILL,
     N_PROPERTIES,
 };
 
@@ -383,6 +384,9 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         break;
     case PROP_ENABLE_SPATIAL_NAVIGATION:
         webkit_settings_set_enable_spatial_navigation(settings, g_value_get_boolean(value));
+        break;
+    case PROP_ENABLE_LOGIN_FORM_AUTOFILL:
+        webkit_settings_set_enable_login_form_autofill(settings, g_value_get_boolean(value));
         break;
     case PROP_ENABLE_MEDIASOURCE:
         webkit_settings_set_enable_mediasource(settings, g_value_get_boolean(value));
@@ -600,6 +604,9 @@ ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         break;
     case PROP_ENABLE_SPATIAL_NAVIGATION:
         g_value_set_boolean(value, webkit_settings_get_enable_spatial_navigation(settings));
+        break;
+    case PROP_ENABLE_LOGIN_FORM_AUTOFILL:
+        g_value_set_boolean(value, webkit_settings_get_enable_login_form_autofill(settings));
         break;
     case PROP_ENABLE_MEDIASOURCE:
         g_value_set_boolean(value, webkit_settings_get_enable_mediasource(settings));
@@ -1737,6 +1744,22 @@ static void webkit_settings_class_init(WebKitSettingsClass* klass)
         _("WebRTC UDP ports range, the format is min-port:max-port"),
         nullptr, // A null string forces the default value.
         readWriteConstructParamFlags);
+
+    /**
+     * WebKitSettings:enable-login-form-autofill:
+     *
+     * Whether WebKit gives the application the login forms of pages, for a password manager: the
+     * #WebKitWebView:focused-login-form property and the #WebKitWebView::login-form-submitted signal. While it is
+     * disabled, the values that users type in login fields stay in the web process.
+     *
+     * Since: 2.56
+     */
+    sObjProperties[PROP_ENABLE_LOGIN_FORM_AUTOFILL] =
+        g_param_spec_boolean(
+            "enable-login-form-autofill",
+            nullptr, nullptr,
+            FALSE,
+            readWriteConstructParamFlags);
 
     g_object_class_install_properties(gObjectClass, N_PROPERTIES, sObjProperties.data());
 }
@@ -4484,4 +4507,42 @@ webkit_settings_set_webrtc_udp_ports_range(WebKitSettings* settings, const gchar
 #else
     UNUSED_PARAM(udpPortsRange);
 #endif
+}
+
+/**
+ * webkit_settings_get_enable_login_form_autofill:
+ * @settings: a #WebKitSettings
+ *
+ * Get the #WebKitSettings:enable-login-form-autofill property.
+ *
+ * Returns: %TRUE if WebKit gives the application the login forms of pages, or %FALSE otherwise
+ *
+ * Since: 2.56
+ */
+gboolean webkit_settings_get_enable_login_form_autofill(WebKitSettings* settings)
+{
+    g_return_val_if_fail(WEBKIT_IS_SETTINGS(settings), FALSE);
+
+    return settings->priv->preferences->loginFormAutofillEnabled();
+}
+
+/**
+ * webkit_settings_set_enable_login_form_autofill:
+ * @settings: a #WebKitSettings
+ * @enabled: Value to be set
+ *
+ * Set the #WebKitSettings:enable-login-form-autofill property.
+ *
+ * Since: 2.56
+ */
+void webkit_settings_set_enable_login_form_autofill(WebKitSettings* settings, gboolean enabled)
+{
+    g_return_if_fail(WEBKIT_IS_SETTINGS(settings));
+
+    WebKitSettingsPrivate* priv = settings->priv;
+    if (priv->preferences->loginFormAutofillEnabled() == static_cast<bool>(enabled))
+        return;
+
+    priv->preferences->setLoginFormAutofillEnabled(enabled);
+    g_object_notify_by_pspec(G_OBJECT(settings), sObjProperties[PROP_ENABLE_LOGIN_FORM_AUTOFILL]);
 }

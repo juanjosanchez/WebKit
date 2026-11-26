@@ -54,6 +54,7 @@
 #include "WebKitHitTestResultPrivate.h"
 #include "WebKitIconLoadingClient.h"
 #include "WebKitInputMethodContextPrivate.h"
+#include "WebKitLoginFormPrivate.h"
 #include "WebKitNavigationClient.h"
 #include "WebKitNotificationPrivate.h"
 #include "WebKitPermissionStateQueryPrivate.h"
@@ -194,6 +195,7 @@ enum {
     CONTEXT_MENU_DISMISSED,
 
     SUBMIT_FORM,
+    LOGIN_FORM_SUBMITTED,
 
     INSECURE_CONTENT_DETECTED,
 
@@ -267,6 +269,7 @@ enum {
     PROP_DEFAULT_CONTENT_SECURITY_POLICY,
 
     PROP_THEME_COLOR,
+    PROP_FOCUSED_LOGIN_FORM,
     PROP_IS_IMMERSIVE_MODE_ENABLED,
 
 #if ENABLE(2022_GLIB_API)
@@ -397,6 +400,10 @@ struct _WebKitWebViewPrivate {
     RefPtr<API::PageConfiguration> configurationForNextRelatedView;
     WebKitWebView* relatedView;
     UTF8CString title;
+    struct LoginFormDeleter {
+        void operator()(WebKitLoginForm* form) const { webkit_login_form_unref(form); }
+    };
+    std::unique_ptr<WebKitLoginForm, LoginFormDeleter> focusedLoginForm;
     UTF8CString customTextEncoding;
     UTF8CString activeURI;
     bool isActiveURIChangeBlocked;
@@ -1332,6 +1339,9 @@ static void webkitWebViewGetProperty(GObject* object, guint propId, GValue* valu
 #endif
         break;
     }
+    case PROP_FOCUSED_LOGIN_FORM:
+        g_value_set_boxed(value, webkit_web_view_get_focused_login_form(webView));
+        break;
     case PROP_IS_IMMERSIVE_MODE_ENABLED:
         g_value_set_boolean(value, webkit_web_view_is_immersive_mode_enabled(webView));
         break;
@@ -1980,6 +1990,22 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
         static_cast<GParamFlags>(WEBKIT_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
 #endif
 
+    /**
+     * WebKitWebView:focused-login-form: (getter get_focused_login_form)
+     *
+     * The login form whose field has the focus, or %NULL when no field of a login form has the focus. A new
+     * #WebKitLoginForm replaces it when the values or the bounds of its fields change, for a password manager to
+     * follow the fields. webkit_web_view_autofill_login_form() fills it. It is always %NULL unless
+     * #WebKitSettings:enable-login-form-autofill is enabled.
+     *
+     * Since: 2.56
+     */
+    sObjProperties[PROP_FOCUSED_LOGIN_FORM] = g_param_spec_boxed(
+        "focused-login-form",
+        nullptr, nullptr,
+        WEBKIT_TYPE_LOGIN_FORM,
+        WEBKIT_PARAM_READABLE);
+
     g_object_class_install_properties(gObjectClass, N_PROPERTIES, sObjProperties.data());
 
     /**
@@ -2575,6 +2601,27 @@ static void webkit_web_view_class_init(WebKitWebViewClass* webViewClass)
                      WEBKIT_TYPE_FORM_SUBMISSION_REQUEST);
 
     /**
+     * WebKitWebView::login-form-submitted:
+     * @web_view: the #WebKitWebView on which the signal is emitted
+     * @form: a #WebKitLoginForm with the values that the page submits
+     *
+     * Emitted when the page is about to submit a login form: when the user submits it, also when the page then
+     * cancels the submit event to send the values itself, and when a script submits it. A password manager can offer
+     * to save the values. A submission of the same values that goes through several of those steps is told once. It
+     * is only emitted while #WebKitSettings:enable-login-form-autofill is enabled.
+     *
+     * Since: 2.56
+     */
+    signals[LOGIN_FORM_SUBMITTED] =
+        g_signal_new("login-form-submitted",
+                     G_TYPE_FROM_CLASS(webViewClass),
+                     G_SIGNAL_RUN_LAST,
+                     0, nullptr, nullptr,
+                     g_cclosure_marshal_generic,
+                     G_TYPE_NONE, 1,
+                     WEBKIT_TYPE_LOGIN_FORM | G_SIGNAL_TYPE_STATIC_SCOPE);
+
+    /**
      * WebKitWebView::insecure-content-detected:
      * @web_view: the #WebKitWebView on which the signal is emitted
      * @event: the #WebKitInsecureContentEvent
@@ -2823,6 +2870,8 @@ void webkitWebViewLoadChanged(WebKitWebView* webView, WebKitLoadEvent loadEvent,
         webView->priv->isActiveURIChangeBlocked = false;
         break;
     case WEBKIT_LOAD_COMMITTED: {
+        // The fields of the old document are gone, also when its web process is no longer heard, after a process swap.
+        webkitWebViewSetFocusedLoginForm(webView, nullptr);
         auto activeURL = getPage(webView).pageLoadState().activeURL().string().utf8();
         // Active URL is trusted now. If it's different to our active URI, due to the
         // update block before WEBKIT_LOAD_STARTED, we update it here to be in sync
@@ -3265,6 +3314,19 @@ void webkitWebViewPopulateContextMenu(WebKitWebView* webView, const Vector<WebCo
 void webkitWebViewSubmitFormRequest(WebKitWebView* webView, WebKitFormSubmissionRequest* request)
 {
     g_signal_emit(webView, signals[SUBMIT_FORM], 0, request);
+}
+
+void webkitWebViewSetFocusedLoginForm(WebKitWebView* webView, WebKitLoginForm* form)
+{
+    if (!form && !webView->priv->focusedLoginForm)
+        return;
+    webView->priv->focusedLoginForm.reset(form ? webkit_login_form_ref(form) : nullptr);
+    g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_FOCUSED_LOGIN_FORM]);
+}
+
+void webkitWebViewLoginFormSubmitted(WebKitWebView* webView, WebKitLoginForm* form)
+{
+    g_signal_emit(webView, signals[LOGIN_FORM_SUBMITTED], 0, form);
 }
 
 void webkitWebViewHandleAuthenticationChallenge(WebKitWebView* webView, AuthenticationChallengeProxy* authenticationChallenge)
@@ -5507,6 +5569,9 @@ SNAPSHOT_TYPE webkit_web_view_get_snapshot_finish(WebKitWebView* webView, GAsync
 
 void webkitWebViewWebProcessTerminated(WebKitWebView* webView, WebKitWebProcessTerminationReason reason)
 {
+    // The fields went with the web process.
+    webkitWebViewSetFocusedLoginForm(webView, nullptr);
+
 #if PLATFORM(GTK) && !USE(GTK4)
     if (reason == WEBKIT_WEB_PROCESS_CRASHED) {
         gboolean returnValue;
@@ -6176,6 +6241,47 @@ void webkitWebViewSetIsImmersiveModeEnabled(WebKitWebView* webView, bool isImmer
     g_object_notify_by_pspec(G_OBJECT(webView), sObjProperties[PROP_IS_IMMERSIVE_MODE_ENABLED]);
 }
 #endif
+
+/**
+ * webkit_web_view_get_focused_login_form:
+ * @web_view: a #WebKitWebView
+ *
+ * Gets the login form whose field has the focus, as #WebKitWebView:focused-login-form.
+ *
+ * Returns: (transfer none) (nullable): a #WebKitLoginForm, or %NULL
+ *
+ * Since: 2.56
+ */
+WebKitLoginForm* webkit_web_view_get_focused_login_form(WebKitWebView* webView)
+{
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), nullptr);
+
+    return webView->priv->focusedLoginForm.get();
+}
+
+/**
+ * webkit_web_view_autofill_login_form:
+ * @web_view: a #WebKitWebView
+ * @form: the #WebKitLoginForm to fill, a #WebKitWebView:focused-login-form of @web_view
+ * @values: (array length=n_values): the values of the fields of @form, in order, %NULL for a field to leave as it is
+ * @n_values: the number of values
+ *
+ * Fills the fields of @form as a user who typed the values would, and marks them autofilled. WebKit fills them only
+ * while the field that had the focus in @form still has it, in the same document.
+ *
+ * Since: 2.56
+ */
+void webkit_web_view_autofill_login_form(WebKitWebView* webView, WebKitLoginForm* form, const char* const* values, gsize valuesLength)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_VIEW(webView));
+    g_return_if_fail(form);
+    g_return_if_fail(values || !valuesLength);
+
+    Vector<String> fieldValues;
+    for (gsize i = 0; i < valuesLength; ++i)
+        fieldValues.append(values[i] ? String::fromUTF8(values[i]) : String());
+    getPage(webView).autofillLoginForm(webkitLoginFormGetLoginForm(form), fieldValues);
+}
 
 /**
  * webkit_web_view_is_immersive_mode_enabled: (get-property is-immersive-mode-enabled):

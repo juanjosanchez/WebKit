@@ -29,23 +29,32 @@
 #include "DrawingAreaCoordinatedGraphicsGLib.h"
 #include "EditorState.h"
 #include "InputMethodState.h"
+#include "LoginForm.h"
 #include "MessageSenderInlines.h"
 #include "RenderProcessInfo.h"
 #include "UserMessage.h"
+#include "WebFrame.h"
 #include "WebKitUserMessage.h"
 #include "WebKitWebPagePrivate.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcess.h"
 #include "WebProcessExtensionManager.h"
+#include <WebCore/Autofill.h>
+#include <WebCore/AutofillElements.h>
 #include <WebCore/DocumentView.h>
 #include <WebCore/Editor.h>
+#include <WebCore/ElementInlines.h>
 #include <WebCore/FocusController.h>
+#include <WebCore/FormListedElement.h>
 #include <WebCore/FrameSelection.h>
+#include <WebCore/HTMLFormElement.h>
 #include <WebCore/HTMLInputElement.h>
+#include <WebCore/HTMLNames.h>
 #include <WebCore/HTMLTextAreaElement.h>
 #include <WebCore/LocalFrameInlines.h>
 #include <WebCore/LocalFrameView.h>
 #include <WebCore/NodeDocument.h>
+#include <WebCore/NodeList.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformDisplay.h>
 #include <WebCore/PointerCharacteristics.h>
@@ -354,6 +363,8 @@ void WebPage::setInputMethodState(Element* element)
 
 void WebPage::sendInputMethodState(Element* element, InhibitOnScreenKeyboard inhibitOnScreenKeyboard)
 {
+    sendFocusedLoginForm(element);
+
     auto state = inputMethodStateForElement(element);
 
     if (state && inhibitOnScreenKeyboard == InhibitOnScreenKeyboard::Yes)
@@ -501,6 +512,192 @@ void WebPage::getRenderProcessInfo(CompletionHandler<void(RenderProcessInfo&&)>&
 #endif // USE(GBM)
 
     static_cast<DrawingAreaCoordinatedGraphics*>(m_drawingArea.get())->fillGLInformation(WTF::move(info), WTF::move(completionHandler));
+}
+
+// Labels and placeholders that a password manager may show, cut so that a page cannot make every message huge.
+static constexpr unsigned maximumLoginFormFieldTextLength = 256;
+
+// What a password field is for, from its autocomplete attribute, else from the form: a form with a second password
+// field to fill is one to sign up or to change the password.
+static LoginFormField::Role roleOfPasswordField(const HTMLInputElement& input, bool hasSecondPasswordField)
+{
+    switch (toAutofillFieldName(input.autofillData().fieldName)) {
+    case AutofillFieldName::NewPassword:
+        return LoginFormField::Role::NewPassword;
+    case AutofillFieldName::CurrentPassword:
+        return LoginFormField::Role::Password;
+    default:
+        return hasSecondPasswordField ? LoginFormField::Role::NewPassword : LoginFormField::Role::Password;
+    }
+}
+
+std::optional<LoginForm> WebPage::loginFormForInput(HTMLInputElement& start, bool inputHasFocus)
+{
+    RefPtr coreFrame = start.document().frame();
+    if (!coreFrame)
+        return std::nullopt;
+    RefPtr webFrame = WebFrame::fromCoreFrame(*coreFrame);
+    if (!webFrame)
+        return std::nullopt;
+    auto elements = AutofillElements::computeAutofillElements(start);
+    if (!elements)
+        return std::nullopt;
+
+    LoginForm form { webFrame->frameID(), { }, std::nullopt };
+    Ref document = start.document();
+    auto addField = [&](const RefPtr<HTMLInputElement>& input, LoginFormField::Role role) {
+        // The focus order goes in and out of frames, but a field of another document is not part of the form: filling
+        // it would give the logins of the site of one document to another.
+        if (!input || &input->document() != document.ptr())
+            return;
+        auto context = contextForElement(*input);
+        if (!context)
+            return;
+        if (inputHasFocus && input.get() == &start)
+            form.focusedField = static_cast<uint32_t>(form.fields.size());
+        String label;
+        if (RefPtr labels = input->labels(); labels && labels->length()) {
+            if (RefPtr first = labels->item(0))
+                label = first->textContent().simplifyWhiteSpace(isASCIIWhitespace).left(maximumLoginFormFieldTextLength);
+        }
+        form.fields.append(LoginFormField {
+            role,
+            WTF::move(*context),
+            input->value().get(),
+            input->attributeWithoutSynchronization(HTMLNames::nameAttr).string(),
+            input->getIdAttribute().string(),
+            input->type().string(),
+            input->attributeWithoutSynchronization(HTMLNames::autocompleteAttr).string(),
+            input->attributeWithoutSynchronization(HTMLNames::placeholderAttr).string().left(maximumLoginFormFieldTextLength),
+            WTF::move(label),
+        });
+    };
+
+    auto password = elements->passwordField();
+    auto secondPassword = elements->secondPasswordField();
+    addField(elements->usernameField(), LoginFormField::Role::Username);
+    if (password)
+        addField(password, roleOfPasswordField(*password, secondPassword && &secondPassword->document() == document.ptr()));
+    addField(secondPassword, LoginFormField::Role::NewPassword);
+
+    // Without a password field left, only a field that says it takes a user name makes a login form.
+    bool hasPasswordField = std::ranges::any_of(form.fields, [](auto& field) {
+        return field.role != LoginFormField::Role::Username;
+    });
+    if (!hasPasswordField) {
+        auto fieldName = toAutofillFieldName(start.autofillData().fieldName);
+        if (form.fields.isEmpty() || (fieldName != AutofillFieldName::Username && fieldName != AutofillFieldName::WebAuthn))
+            return std::nullopt;
+    }
+    return form;
+}
+
+// Tells the UI process of the login form of the focused field, if it has one, along with the input method state, at
+// the same moments: when a field gets the focus, after a blur, and when the page gets the focus back.
+void WebPage::sendFocusedLoginForm(Element* element)
+{
+    RefPtr input = dynamicDowncast<HTMLInputElement>(element);
+    std::optional<LoginForm> form;
+    if (m_loginFormAutofillEnabled && input && (input->isTextField() || input->isEmailField()))
+        form = loginFormForInput(*input, true);
+    m_focusedLoginFormInput = form ? input.get() : nullptr;
+    if (loginFormsAreEqual(m_focusedLoginForm, form))
+        return;
+    m_focusedLoginForm = WTF::move(form);
+    send(Messages::WebPageProxy::FocusedLoginFormChanged(m_focusedLoginForm));
+}
+
+void WebPage::updateFocusedLoginForm()
+{
+    // A form whose field went away without a blur is gone too.
+    if (m_focusedLoginForm)
+        sendFocusedLoginForm(m_focusedLoginFormInput.get());
+}
+
+void WebPage::scheduleFocusedLoginFormUpdate()
+{
+    // Fields move on every frame of a scroll, so their bounds go to the UI process at most this often.
+    if (m_focusedLoginForm && !m_focusedLoginFormRefreshTimer.isActive())
+        m_focusedLoginFormRefreshTimer.startOneShot(100_ms);
+}
+
+// Takes the bounds and values of the fields of the focused login form again, as after a scroll or a layout, without
+// finding the fields again, unless one of them is gone.
+void WebPage::refreshFocusedLoginForm()
+{
+    if (!m_focusedLoginForm)
+        return;
+    auto form = *m_focusedLoginForm;
+    for (auto& field : form.fields) {
+        RefPtr input = dynamicDowncast<HTMLInputElement>(elementForContext(field.element));
+        if (!input) {
+            updateFocusedLoginForm();
+            return;
+        }
+        field.element.boundingRect = input->boundingBoxInRootViewCoordinates();
+        field.value = input->value().get();
+    }
+    if (loginFormsAreEqual(m_focusedLoginForm, form))
+        return;
+    m_focusedLoginForm = WTF::move(form);
+    send(Messages::WebPageProxy::FocusedLoginFormChanged(m_focusedLoginForm));
+}
+
+void WebPage::loginFormFieldDidChange(HTMLInputElement&)
+{
+    // New values make a new sign in.
+    m_lastSubmittedLoginForm = std::nullopt;
+    updateFocusedLoginForm();
+}
+
+void WebPage::loginFormWillBeSubmitted(HTMLFormElement& formElement)
+{
+    if (!m_loginFormAutofillEnabled)
+        return;
+
+    // The first password field of the form, from which AutofillElements finds the others, as for a focused field.
+    RefPtr<HTMLInputElement> password;
+    for (auto& listedElement : formElement.copyListedElementsVector()) {
+        RefPtr input = dynamicDowncast<HTMLInputElement>(listedElement->asHTMLElement());
+        if (input && input->isPasswordField()) {
+            password = WTF::move(input);
+            break;
+        }
+    }
+    if (!password)
+        return;
+    auto form = loginFormForInput(*password, false);
+    if (!form)
+        return;
+    if (m_lastSubmittedLoginFormElement.get() == &formElement && loginFormsAreEqual(m_lastSubmittedLoginForm, form))
+        return;
+    m_lastSubmittedLoginFormElement = &formElement;
+    m_lastSubmittedLoginForm = form;
+    send(Messages::WebPageProxy::LoginFormSubmitted(*form));
+}
+
+void WebPage::autofillLoginForm(const ElementContext& focusedField, const Vector<std::pair<ElementContext, String>>& values)
+{
+    // Only while the field that the password manager answered for has the focus, in the same document, and only the
+    // fields of its form.
+    RefPtr input = dynamicDowncast<HTMLInputElement>(elementForContext(focusedField));
+    if (!m_loginFormAutofillEnabled || !input || input != m_focusedLoginFormInput.get())
+        return;
+    auto elements = AutofillElements::computeAutofillElements(*input);
+    if (!elements)
+        return;
+    std::array<RefPtr<HTMLInputElement>, 3> fields { elements->usernameField(), elements->passwordField(), elements->secondPasswordField() };
+    for (auto& [context, value] : values) {
+        RefPtr field = dynamicDowncast<HTMLInputElement>(elementForContext(context));
+        if (!field || &field->document() != &input->document() || std::ranges::find(fields, field) == fields.end())
+            continue;
+        // Marked before the value changes, as the input listeners of the page may check, like a field filled through
+        // the form manager of a web process extension.
+        if (!value.isEmpty())
+            field->setAutofilled(true);
+        field->setValueForUser(value);
+    }
+    updateFocusedLoginForm();
 }
 
 } // namespace WebKit

@@ -479,8 +479,12 @@ void WebEditorClient::textDidChangeInTextField(Element& element)
     RefPtr webFrame = WebFrame::fromCoreFrame(*element.document().frame());
     ASSERT(webFrame);
 
-    if (RefPtr page = m_page.get())
+    if (RefPtr page = m_page.get()) {
         page->injectedBundleFormClient().textDidChangeInTextField(page.get(), *inputElement, webFrame.get(), initiatedByUserTyping);
+#if PLATFORM(GTK) || PLATFORM(WPE)
+        page->loginFormFieldDidChange(*inputElement);
+#endif
+    }
 
     if (initiatedByUserTyping)
         inputElement->dispatchUserTextInputEvent();

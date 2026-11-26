@@ -81,6 +81,7 @@
 #if !ENABLE(2022_GLIB_API)
 #include <@API_INCLUDE_PREFIX@/WebKitJavascriptResult.h>
 #endif
+#include <@API_INCLUDE_PREFIX@/WebKitLoginForm.h>
 #include <@API_INCLUDE_PREFIX@/WebKitMediaKeySystemPermissionRequest.h>
 #include <@API_INCLUDE_PREFIX@/WebKitMemoryPressureSettings.h>
 #if !ENABLE(2022_GLIB_API)

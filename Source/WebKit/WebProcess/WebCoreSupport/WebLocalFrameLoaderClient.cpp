@@ -1210,6 +1210,10 @@ void WebLocalFrameLoaderClient::dispatchWillSendSubmitEvent(Ref<FormState>&& for
     ASSERT(sourceFrame);
 
     webPage->injectedBundleFormClient().willSendSubmitEvent(webPage.get(), form.ptr(), m_frame.ptr(), sourceFrame.get(), formState->textFieldValues());
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    // Before the submit event, which the page may cancel to send the values itself.
+    webPage->loginFormWillBeSubmitted(form);
+#endif
 }
 
 void WebLocalFrameLoaderClient::dispatchWillSubmitForm(FormState& formState, URL&& requestURL, String&& method, CompletionHandler<void()>&& completionHandler)
@@ -1233,6 +1237,10 @@ void WebLocalFrameLoaderClient::dispatchWillSubmitForm(FormState& formState, URL
 
     RefPtr<API::Object> userData;
     webPage->injectedBundleFormClient().willSubmitForm(webPage.get(), form.ptr(), m_frame.ptr(), sourceFrame.get(), values, userData);
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    // Also for a form that a script submits, which gets no submit event.
+    webPage->loginFormWillBeSubmitted(form);
+#endif
 
     if (!userData) {
         auto userInfo = form->userInfo();
