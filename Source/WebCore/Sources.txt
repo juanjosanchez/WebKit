@@ -1563,6 +1563,7 @@ editing/AppendNodeCommand.cpp
 editing/ApplyBlockElementCommand.cpp @header:RenderStyleGetters
 editing/ApplyBlockPresentationIntentCommand.cpp
 editing/ApplyStyleCommand.cpp @header:RenderStyleGetters
+editing/AutofillElements.cpp
 editing/BreakBlockquoteCommand.cpp
 editing/CachedMatchFinder.cpp
 editing/ChangeListTypeCommand.cpp
