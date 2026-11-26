@@ -237,6 +237,8 @@ messages -> WebPageProxy {
     BindAccessibilityTree(String plugID)
 
     SetInputMethodState(struct std::optional<WebKit::InputMethodState> state);
+    FocusedLoginFormChanged(struct std::optional<WebKit::LoginForm> form)
+    LoginFormSubmitted(struct WebKit::LoginForm form)
 #endif
 
     # BackForward messages

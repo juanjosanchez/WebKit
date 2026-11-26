@@ -1,0 +1,101 @@
+/*
+ * Copyright (C) 2026 Igalia S.L.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
+
+@API_SINGLE_HEADER_CHECK@
+
+#pragma once
+
+#include <glib-object.h>
+#include <@API_INCLUDE_PREFIX@/WebKitDefines.h>
+#include <@API_INCLUDE_PREFIX@/WebKitSecurityOrigin.h>
+
+G_BEGIN_DECLS
+
+#define WEBKIT_TYPE_LOGIN_FORM (webkit_login_form_get_type())
+
+typedef struct _WebKitLoginForm WebKitLoginForm;
+
+/**
+ * WebKitLoginFormFieldRole:
+ * @WEBKIT_LOGIN_FORM_FIELD_ROLE_USERNAME: The field takes the user name, or an email address or a phone number used
+ *    as one.
+ * @WEBKIT_LOGIN_FORM_FIELD_ROLE_PASSWORD: The field takes the current password.
+ * @WEBKIT_LOGIN_FORM_FIELD_ROLE_NEW_PASSWORD: The field takes a new password, as in a form to sign up or to change the
+ *    password.
+ *
+ * What a field of a #WebKitLoginForm is for.
+ *
+ * Since: 2.56
+ */
+typedef enum {
+    WEBKIT_LOGIN_FORM_FIELD_ROLE_USERNAME,
+    WEBKIT_LOGIN_FORM_FIELD_ROLE_PASSWORD,
+    WEBKIT_LOGIN_FORM_FIELD_ROLE_NEW_PASSWORD
+} WebKitLoginFormFieldRole;
+
+WEBKIT_API GType
+webkit_login_form_get_type             (void);
+
+WEBKIT_API WebKitLoginForm *
+webkit_login_form_ref                  (WebKitLoginForm *form);
+
+WEBKIT_API void
+webkit_login_form_unref                (WebKitLoginForm *form);
+
+WEBKIT_API WebKitSecurityOrigin *
+webkit_login_form_get_security_origin  (WebKitLoginForm *form);
+
+WEBKIT_API guint
+webkit_login_form_get_n_fields         (WebKitLoginForm *form);
+
+WEBKIT_API gint
+webkit_login_form_get_focused_field    (WebKitLoginForm *form);
+
+WEBKIT_API WebKitLoginFormFieldRole
+webkit_login_form_get_field_role       (WebKitLoginForm *form,
+                                        guint            index);
+
+WEBKIT_API guint64
+webkit_login_form_get_field_id         (WebKitLoginForm *form,
+                                        guint            index);
+
+WEBKIT_API const gchar *
+webkit_login_form_get_field_value      (WebKitLoginForm *form,
+                                        guint            index);
+
+WEBKIT_API const gchar *
+webkit_login_form_get_field_attribute  (WebKitLoginForm *form,
+                                        guint            index,
+                                        const gchar     *name);
+
+WEBKIT_API const gchar *
+webkit_login_form_get_field_label      (WebKitLoginForm *form,
+                                        guint            index);
+
+WEBKIT_API void
+webkit_login_form_get_field_bounds     (WebKitLoginForm *form,
+                                        guint            index,
+                                        gdouble         *x,
+                                        gdouble         *y,
+                                        gdouble         *width,
+                                        gdouble         *height);
+
+G_DEFINE_AUTOPTR_CLEANUP_FUNC (WebKitLoginForm, webkit_login_form_unref)
+
+G_END_DECLS

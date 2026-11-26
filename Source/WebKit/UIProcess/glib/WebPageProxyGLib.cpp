@@ -27,12 +27,18 @@
 #include "config.h"
 #include "WebPageProxy.h"
 
+#include "APIFormClient.h"
+#include "LoginForm.h"
 #include "PageClient.h"
+#include "WebFrameProxy.h"
 #include "WebKitWebResourceLoadManager.h"
+#include "WebPageMessages.h"
 #include "WebPageProxyInternals.h"
 #include "WebPreferences.h"
+#include "WebProcessProxy.h"
 #include <WebCore/NotImplemented.h>
 #include <WebCore/SearchPopupMenu.h>
+#include <WebCore/SecurityOriginData.h>
 #include <WebCore/UserAgent.h>
 
 namespace WebKit {
@@ -102,6 +108,62 @@ WebKitWebView* WebPageProxy::platformView()
 void WebPageProxy::setPlatformView(WebKitWebView *view)
 {
     internals().platformView = GWeakPtr(view);
+}
+
+// AutofillElements finds one to three fields, and the focused field is one of them.
+static bool isValidLoginForm(const LoginForm& form)
+{
+    return !form.fields.isEmpty() && form.fields.size() <= 3 && (!form.focusedField || *form.focusedField < form.fields.size());
+}
+
+// The origin of the frame of a login form, from what the UI process knows of the frame, never from the message, so
+// that a web process cannot make a password manager fill or save the logins of another site. Only http and https.
+static std::optional<WebCore::SecurityOriginData> originOfLoginForm(const WebFrameProxy& frame)
+{
+    const URL& url = frame.url();
+    if (!url.protocolIsInHTTPFamily())
+        return std::nullopt;
+    return WebCore::SecurityOriginData::fromURL(url);
+}
+
+void WebPageProxy::focusedLoginFormChanged(IPC::Connection& connection, std::optional<LoginForm>&& form)
+{
+    std::optional<WebCore::SecurityOriginData> origin;
+    if (form) {
+        MESSAGE_CHECK_BASE(isValidLoginForm(*form), connection);
+        // The frame may have gone meanwhile, or moved to another process.
+        RefPtr frame = WebFrameProxy::webFrame(form->frameID);
+        if (frame && frame->page() == this && &frame->process() == WebProcessProxy::fromConnection(connection).ptr())
+            origin = originOfLoginForm(*frame);
+        if (!origin)
+            form = std::nullopt;
+    }
+    m_formClient->focusedLoginFormChanged(*this, form, origin);
+}
+
+void WebPageProxy::loginFormSubmitted(IPC::Connection& connection, LoginForm&& form)
+{
+    MESSAGE_CHECK_BASE(isValidLoginForm(form), connection);
+    RefPtr frame = WebFrameProxy::webFrame(form.frameID);
+    if (!frame || frame->page() != this || &frame->process() != WebProcessProxy::fromConnection(connection).ptr())
+        return;
+    if (auto origin = originOfLoginForm(*frame))
+        m_formClient->loginFormSubmitted(*this, form, *origin);
+}
+
+// The values are those of the fields of the form, in order, a null one for a field to leave as it is.
+void WebPageProxy::autofillLoginForm(const LoginForm& form, const Vector<String>& values)
+{
+    if (!form.focusedField || *form.focusedField >= form.fields.size())
+        return;
+    Vector<std::pair<WebCore::ElementContext, String>> fieldValues;
+    for (size_t i = 0; i < values.size() && i < form.fields.size(); ++i) {
+        if (!values[i].isNull())
+            fieldValues.append({ form.fields[i].element, values[i] });
+    }
+    if (fieldValues.isEmpty())
+        return;
+    sendToProcessContainingFrame(form.frameID, Messages::WebPage::AutofillLoginForm(form.fields[*form.focusedField].element, WTF::move(fieldValues)));
 }
 
 } // namespace WebKit

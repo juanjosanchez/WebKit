@@ -89,26 +89,36 @@ AutofillElements::AutofillElements(RefPtr<HTMLInputElement>&& username, RefPtr<H
 {
 }
 
-std::optional<AutofillElements> AutofillElements::computeAutofillElements(Ref<HTMLInputElement> start)
+bool AutofillElements::isPasswordField(const HTMLInputElement& input, IncludeShownPasswordFields includeShownPasswordFields)
+{
+    if (input.isPasswordField())
+        return true;
+    return includeShownPasswordFields == IncludeShownPasswordFields::Yes && input.hasEverBeenPasswordField() && input.isTextField();
+}
+
+std::optional<AutofillElements> AutofillElements::computeAutofillElements(Ref<HTMLInputElement> start, IncludeShownPasswordFields includeShownPasswordFields)
 {
     if (!start->document().page())
         return std::nullopt;
     CheckedRef focusController = { start->document().page()->focusController() };
-    if (start->isPasswordField()) {
+    auto isPassword = [includeShownPasswordFields](const HTMLInputElement& input) {
+        return isPasswordField(input, includeShownPasswordFields);
+    };
+    if (isPassword(start)) {
         auto previousElement = previousAutofillableElement(start.ptr(), focusController);
         auto nextElement = nextAutofillableElement(start.ptr(), focusController);
 
-        bool previousFieldIsTextField = previousElement && !previousElement->isPasswordField();
-        bool hasSecondPasswordFieldToFill = nextElement && nextElement->isPasswordField() && nextElement->value()->isEmpty();
+        bool previousFieldIsTextField = previousElement && !isPassword(*previousElement);
+        bool hasSecondPasswordFieldToFill = nextElement && isPassword(*nextElement) && nextElement->value()->isEmpty();
 
         // Always allow AutoFill in a password field, even if we fill information only into it.
         return {{ previousFieldIsTextField ? WTF::move(previousElement) : nullptr, WTF::move(start), hasSecondPasswordFieldToFill ? WTF::move(nextElement) : nullptr }};
     } else {
         RefPtr<HTMLInputElement> nextElement = nextAutofillableElement(start.ptr(), focusController);
         if (nextElement && is<HTMLInputElement>(*nextElement)) {
-            if (nextElement->isPasswordField()) {
+            if (isPassword(*nextElement)) {
                 auto elementAfterNextElement = nextAutofillableElement(nextElement.get(), focusController);
-                bool hasSecondPasswordFieldToFill = elementAfterNextElement && elementAfterNextElement->isPasswordField() && elementAfterNextElement->value()->isEmpty();
+                bool hasSecondPasswordFieldToFill = elementAfterNextElement && isPassword(*elementAfterNextElement) && elementAfterNextElement->value()->isEmpty();
 
                 return {{ WTF::move(start), WTF::move(nextElement), hasSecondPasswordFieldToFill ? WTF::move(elementAfterNextElement) : nullptr }};
             }

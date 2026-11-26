@@ -107,6 +107,7 @@
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
 #include "InputMethodState.h"
+#include "LoginForm.h"
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -214,7 +215,9 @@ class FrameTreeSyncData;
 class GraphicsContext;
 class HTMLAnchorElement;
 class HTMLElement;
+class HTMLFormElement;
 class HTMLImageElement;
+class HTMLInputElement;
 class HTMLPlugInElement;
 class HTMLSelectElement;
 class HTMLTextFormControlElement;
@@ -1796,6 +1799,9 @@ public:
     void setInputMethodState(WebCore::Element*);
     void focusedElementDidChangeReadOnly(WebCore::Element&);
     void focusedElementDidChangeType(WebCore::Element&);
+    void loginFormFieldDidChange(WebCore::HTMLInputElement&);
+    void loginFormWillBeSubmitted(WebCore::HTMLFormElement&);
+    void scheduleFocusedLoginFormUpdate();
 #endif
 
     void imageOrMediaDocumentSizeChanged(const WebCore::IntSize&);
@@ -2716,6 +2722,11 @@ private:
     void sendInputMethodState(WebCore::Element*, InhibitOnScreenKeyboard);
     void resetInputMethodStateAfterBlur(WebCore::Element&);
     void restoreInputMethodStateAfterPageFocus();
+    std::optional<LoginForm> loginFormForInput(WebCore::HTMLInputElement&, bool inputHasFocus);
+    void sendFocusedLoginForm(WebCore::Element*);
+    void updateFocusedLoginForm();
+    void refreshFocusedLoginForm();
+    void autofillLoginForm(const WebCore::ElementContext& focusedField, const Vector<std::pair<WebCore::ElementContext, String>>& values);
 #endif
 
     void didChooseFilesForOpenPanel(const Vector<String>& files, const Vector<String>& replacementFiles);
@@ -3465,6 +3476,15 @@ private:
 #if PLATFORM(GTK) || PLATFORM(WPE)
     std::optional<InputMethodState> m_inputMethodState;
     WeakPtr<WebCore::Element, WebCore::WeakPtrImplWithEventTargetData> m_focusedElementBeforePageBlur;
+    // Whether the UI process gets the login forms of the page, which the embedder asks for.
+    bool m_loginFormAutofillEnabled { false };
+    // The login form of the focused field, as the UI process last got it, and that field.
+    std::optional<LoginForm> m_focusedLoginForm;
+    WeakPtr<WebCore::HTMLInputElement, WebCore::WeakPtrImplWithEventTargetData> m_focusedLoginFormInput;
+    RunLoop::Timer m_focusedLoginFormRefreshTimer { RunLoop::mainSingleton(), "WebPage::FocusedLoginFormRefreshTimer"_s, this, &WebPage::refreshFocusedLoginForm };
+    // The last login form submitted, so that a submission that goes through both submit hooks is told once.
+    WeakPtr<WebCore::HTMLFormElement, WebCore::WeakPtrImplWithEventTargetData> m_lastSubmittedLoginFormElement;
+    std::optional<LoginForm> m_lastSubmittedLoginForm;
 #endif
 
 #if USE(OS_STATE)

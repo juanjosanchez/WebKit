@@ -96,6 +96,8 @@ bool webkitWebViewExitFullScreen(WebKitWebView*);
 #endif
 void webkitWebViewPopulateContextMenu(WebKitWebView*, const Vector<WebKit::WebContextMenuItemData>& proposedMenu, const WebKit::WebHitTestResultData&, GVariant*);
 void webkitWebViewSubmitFormRequest(WebKitWebView*, WebKitFormSubmissionRequest*);
+void webkitWebViewSetFocusedLoginForm(WebKitWebView*, WebKitLoginForm*);
+void webkitWebViewLoginFormSubmitted(WebKitWebView*, WebKitLoginForm*);
 void webkitWebViewHandleAuthenticationChallenge(WebKitWebView*, WebKit::AuthenticationChallengeProxy*);
 void webkitWebViewInsecureContentDetected(WebKitWebView*, WebKitInsecureContentEvent);
 bool webkitWebViewEmitShowNotification(WebKitWebView*, WebKitNotification*);

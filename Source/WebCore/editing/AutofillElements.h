@@ -30,13 +30,20 @@
 
 namespace WebCore {
 
+// Whether a password field that the page turned into a text field, as to show the password, still counts as one.
+enum class IncludeShownPasswordFields : bool { No, Yes };
+
 class AutofillElements {
     WTF_MAKE_TZONE_ALLOCATED(AutofillElements);
 public:
-    WEBCORE_EXPORT static std::optional<AutofillElements> computeAutofillElements(Ref<HTMLInputElement>);
+    WEBCORE_EXPORT static std::optional<AutofillElements> computeAutofillElements(Ref<HTMLInputElement>, IncludeShownPasswordFields = IncludeShownPasswordFields::No);
+    WEBCORE_EXPORT static bool isPasswordField(const HTMLInputElement&, IncludeShownPasswordFields);
     WEBCORE_EXPORT void autofill(String, String);
 
     const HTMLInputElement* username() const { return m_username.get(); }
+    RefPtr<HTMLInputElement> usernameField() const { return m_username; }
+    RefPtr<HTMLInputElement> passwordField() const { return m_password; }
+    RefPtr<HTMLInputElement> secondPasswordField() const { return m_secondPassword; }
 private:
     AutofillElements(RefPtr<HTMLInputElement>&&, RefPtr<HTMLInputElement>&&, RefPtr<HTMLInputElement>&&);
     const RefPtr<HTMLInputElement> m_username;

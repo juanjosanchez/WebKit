@@ -37,6 +37,7 @@
 #include <@API_INCLUDE_PREFIX@/WebKitFindController.h>
 #include <@API_INCLUDE_PREFIX@/WebKitFormSubmissionRequest.h>
 #include <@API_INCLUDE_PREFIX@/WebKitHitTestResult.h>
+#include <@API_INCLUDE_PREFIX@/WebKitLoginForm.h>
 #if !PLATFORM(GTK) && ENABLE(2022_GLIB_API)
 #include <@API_INCLUDE_PREFIX@/WebKitImage.h>
 #endif
@@ -933,6 +934,15 @@ WEBKIT_API gboolean
 webkit_web_view_get_theme_color                      (WebKitWebView             *web_view,
                                                       GdkRGBA                   *rgba);
 #endif
+
+WEBKIT_API WebKitLoginForm *
+webkit_web_view_get_focused_login_form               (WebKitWebView             *web_view);
+
+WEBKIT_API void
+webkit_web_view_autofill_login_form                  (WebKitWebView             *web_view,
+                                                      WebKitLoginForm           *form,
+                                                      const gchar * const       *values,
+                                                      gsize                      n_values);
 
 WEBKIT_API gboolean
 webkit_web_view_is_immersive_mode_enabled            (WebKitWebView             *web_view);

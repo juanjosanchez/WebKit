@@ -5816,6 +5816,16 @@ void WebPage::updatePreferences(const WebPreferencesStore& store)
 
     m_tabToLinks = store.getBoolValueForKey(WebPreferencesKey::tabsToLinksKey());
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    bool loginFormAutofillEnabled = store.getBoolValueForKey(WebPreferencesKey::loginFormAutofillEnabledKey());
+    if (m_loginFormAutofillEnabled != loginFormAutofillEnabled) {
+        m_loginFormAutofillEnabled = loginFormAutofillEnabled;
+        // The UI process gets the login form of the field that has the focus as the setting turns on, and none as it
+        // turns off.
+        sendFocusedLoginForm(loginFormAutofillEnabled ? m_focusedElement.get() : nullptr);
+    }
+#endif
+
     bool isAppNapEnabled = store.getBoolValueForKey(WebPreferencesKey::pageVisibilityBasedProcessSuppressionEnabledKey());
     if (m_isAppNapEnabled != isAppNapEnabled) {
         m_isAppNapEnabled = isAppNapEnabled;
@@ -5992,6 +6002,11 @@ String WebPage::rootFrameOriginString()
 
 void WebPage::didUpdateRendering(OptionSet<DidUpdateRenderingFlags> flags)
 {
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    // Layout may have moved the fields of the focused login form.
+    scheduleFocusedLoginFormUpdate();
+#endif
+
     if (flags & DidUpdateRenderingFlags::PaintedLayers) {
 #if ENABLE(GPU_PROCESS)
         if (m_remoteRenderingBackendProxy)
@@ -9427,6 +9442,10 @@ void WebPage::didChangeScrollOffsetForFrame(LocalFrame& frame)
     // When any frame scrolls, the frame's screenPosition (content-origin-based)
     // changes and needs to be recomputed for correct accessibility geometry.
     scheduleAccessibilityFrameGeometryUpdate();
+#endif
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    scheduleFocusedLoginFormUpdate();
 #endif
 
     if (!frame.isMainFrame())

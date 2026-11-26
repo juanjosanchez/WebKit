@@ -3938,6 +3938,12 @@ LockdownFontParserEnabled:
   defaultValue: true
   sharedPreferenceForWebProcess: true
 
+LoginFormAutofillEnabled:
+  type: bool
+  status: embedder
+  excludeFrom: [ WebKitLegacy, WebCore ]
+  defaultValue: false
+
 LoginStatusAPIEnabled:
   type: bool
   status: testable

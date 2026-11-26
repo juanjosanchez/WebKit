@@ -62,6 +62,7 @@
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
 #include "InputMethodState.h"
+#include "LoginForm.h"
 #endif
 
 #if defined(__swift__) && OS(WINDOWS)
@@ -1503,6 +1504,9 @@ public:
     void deleteSurrounding(int64_t offset, unsigned characterCount);
 
     void setInputMethodState(std::optional<InputMethodState>&&);
+    void focusedLoginFormChanged(IPC::Connection&, std::optional<LoginForm>&&);
+    void loginFormSubmitted(IPC::Connection&, LoginForm&&);
+    void autofillLoginForm(const LoginForm&, const Vector<String>& values);
 #endif
         
     void requestScrollToRect(const WebCore::FloatRect& targetRect, const WebCore::FloatPoint& origin);
